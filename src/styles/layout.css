@@ -1,0 +1,555 @@
+/* App shell: header penuh, sidebar desktop, bar bawah untuk layar < 1024 px. */
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) max(var(--space-6), env(safe-area-inset-right, 0px)) 0
+    max(var(--space-6), env(safe-area-inset-left, 0px));
+  background: rgb(14 18 24 / 0.88);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Garis pindai di bawah header saat scan berjalan. */
+.appbar::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-line) 35%, var(--accent) 50%, var(--accent-line) 65%, transparent 100%);
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 300ms var(--ease);
+  pointer-events: none;
+}
+
+.app[data-scanning] .appbar::after {
+  opacity: 1;
+  animation: scanline 1.6s linear infinite;
+}
+
+@keyframes scanline {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: var(--text-md);
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-sm);
+}
+
+.brand .logo-mark {
+  color: var(--accent);
+  filter: drop-shadow(0 0 10px rgb(145 217 98 / 0.35));
+}
+
+.brand__demo {
+  margin-left: 2px;
+}
+
+.appbar__actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.brand {
+  flex: none;
+}
+
+.account-btn {
+  min-width: 0;
+}
+
+.netchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.netchip .icon {
+  color: var(--text-3);
+}
+
+.netchip__value {
+  color: var(--text);
+  font-weight: 550;
+}
+
+.account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  max-width: 100%;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  text-align: left;
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.account-btn:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-3);
+}
+
+.account-btn > .icon:first-child {
+  color: var(--text-2);
+}
+
+.account-btn--demo > .icon:first-child {
+  color: var(--demo);
+}
+
+.account-btn--watch > .icon:first-child {
+  color: var(--teal);
+}
+
+.account-btn__text {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.account-btn__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.account-btn__mode {
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.app__body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.main {
+  justify-self: center;
+  width: 100%;
+  max-width: var(--content-max);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-6) var(--space-10);
+}
+
+.main:focus {
+  outline: none;
+}
+
+/* Sidebar desktop */
+.sidebar {
+  position: sticky;
+  top: var(--header-h);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  height: calc(100dvh - var(--header-h));
+  padding: var(--space-5) var(--space-3);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.sidebar__list {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.5rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  text-decoration: none;
+  font-weight: 550;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.sidebar__link:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.sidebar__link[aria-current='page'] {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.sidebar__link[aria-current='page'] .icon {
+  color: var(--accent);
+}
+
+.sidebar__count {
+  margin-left: auto;
+  min-width: 1.5rem;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.05);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--text-2);
+}
+
+.sidebar__note {
+  margin-top: auto;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  font-size: var(--text-xs);
+  color: var(--text-2);
+}
+
+.sidebar__note-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--demo);
+  font-weight: 650;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+}
+
+/* Bar bawah HP/tablet */
+.bottombar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  padding: var(--space-2) max(var(--space-3), env(safe-area-inset-right, 0px))
+    calc(var(--space-2) + env(safe-area-inset-bottom, 0px)) max(var(--space-3), env(safe-area-inset-left, 0px));
+  background: rgb(14 18 24 / 0.94);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border-top: 1px solid var(--border);
+}
+
+.bottombar__nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.bottombar__link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 3rem;
+  border-radius: var(--radius);
+  color: var(--text-2);
+  text-decoration: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.bottombar__link[aria-current='page'] {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.bottombar__link[aria-current='page'] .icon {
+  color: var(--accent);
+}
+
+.bottombar__count {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 6px);
+  min-width: 1.125rem;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.05rem;
+  text-align: center;
+  color: var(--text);
+}
+
+
+
+/* Kepala halaman */
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.view__title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.view__sub {
+  margin-top: var(--space-1);
+  color: var(--text-2);
+}
+
+/* Banner DEMO dengan pola arsir agar tidak menyerupai data live */
+.demo-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'text control'
+    'text hint';
+  align-items: center;
+  gap: 2px var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--demo-line);
+  border-radius: var(--radius);
+  background:
+    repeating-linear-gradient(-45deg, rgb(195 166 255 / 0.05) 0 10px, transparent 10px 20px),
+    linear-gradient(var(--demo-soft), var(--demo-soft)),
+    var(--surface);
+}
+
+.demo-banner__text {
+  grid-area: text;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: 40rem;
+  font-size: var(--text-sm);
+}
+
+.demo-banner__text .origin {
+  flex: none;
+  margin-top: 1px;
+}
+
+.demo-banner__control {
+  grid-area: control;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.demo-banner__control .select {
+  width: 11.5rem;
+}
+
+.demo-banner__hint {
+  grid-area: hint;
+  justify-self: end;
+  max-width: 21rem;
+  font-size: var(--text-xs);
+  text-align: right;
+  color: var(--text-2);
+}
+
+/* Versi ringkas (< 1024 px): teks DEMO + pemilih skenario yang dapat dibuka. */
+.demo-banner--compact {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+  gap: var(--space-1);
+}
+
+.demo-banner--compact .demo-banner__text {
+  grid-area: auto;
+  max-width: none;
+}
+
+.demo-banner__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.demo-banner__summary::-webkit-details-marker {
+  display: none;
+}
+
+.demo-banner__summary strong {
+  color: var(--text);
+}
+
+.demo-banner__chevron {
+  transform: rotate(-90deg);
+  transition: transform var(--dur) var(--ease);
+}
+
+.demo-banner__more[open] .demo-banner__chevron {
+  transform: rotate(0deg);
+}
+
+.demo-banner__more .demo-banner__control {
+  justify-content: flex-start;
+  margin-top: var(--space-1);
+}
+
+.demo-banner__more .demo-banner__control .select {
+  width: auto;
+  flex: 1 1 auto;
+  max-width: 15rem;
+}
+
+.demo-banner__more .demo-banner__hint {
+  max-width: none;
+  margin-top: var(--space-1);
+  text-align: left;
+}
+
+/* Panel konten */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  overflow: clip;
+}
+
+.panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+
+.panel__title {
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+
+.panel__count {
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+.panel__reset {
+  margin-left: auto;
+}
+
+.panel__content {
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 64rem) {
+  .app__body {
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 63.99rem) {
+  .appbar {
+    padding-left: max(var(--space-4), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  }
+
+  .main {
+    padding: var(--space-4) var(--space-4) calc(var(--bottombar-h) + env(safe-area-inset-bottom, 0px) + var(--space-8));
+    gap: var(--space-4);
+  }
+
+  .view {
+    gap: var(--space-4);
+  }
+
+  .panel__head {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+}
+
+@media (max-width: 29.99rem) {
+  .account-btn > .icon:last-child {
+    display: none;
+  }
+
+  .appbar {
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 23.99rem) {
+  /* Layar sangat sempit: label DEMO tetap ada di banner tepat di bawah header dan di setiap kartu. */
+  .brand .brand__demo {
+    display: none;
+  }
+
+  .bottombar .bottombar__cta {
+    padding: 0 var(--space-3);
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .brand__name {
+    font-size: var(--text-base);
+  }
+
+  .view__title {
+    font-size: var(--text-xl);
+  }
+
+  .demo-banner {
+    padding: var(--space-3);
+  }
+}

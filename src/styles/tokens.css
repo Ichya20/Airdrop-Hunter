@@ -1,0 +1,107 @@
+/* Token desain AirdropHunter. Elevasi ditunjukkan dengan permukaan yang lebih terang. */
+:root {
+  color-scheme: dark;
+
+  /* Permukaan */
+  --bg: #0e1218;
+  --bg-deep: #0b0f14;
+  --surface: #171e27;
+  --surface-2: #1c2530;
+  --surface-3: #232d3a;
+  --surface-hover: #1b232d;
+  --border: #2b3543;
+  --border-strong: #3a4657;
+  --border-hover: #4a586b;
+  --hairline: rgb(230 237 245 / 0.07);
+
+  /* Teks */
+  --text: #e6edf5;
+  --text-2: #a8b5c7;
+  --text-3: #8c9aad;
+
+  /* Aksen dan status: selalu dipasangkan dengan ikon + teks */
+  --accent: #91d962;
+  --accent-hover: #a6e47f;
+  --accent-ink: #0e1218;
+  --accent-soft: rgb(145 217 98 / 0.12);
+  --accent-line: rgb(145 217 98 / 0.4);
+
+  --amber: #f2b84b;
+  --amber-soft: rgb(242 184 75 / 0.12);
+  --amber-line: rgb(242 184 75 / 0.4);
+
+  --info: #8db8ff;
+  --info-soft: rgb(141 184 255 / 0.1);
+  --info-line: rgb(141 184 255 / 0.4);
+
+  --danger: #f28b82;
+  --danger-soft: rgb(242 139 130 / 0.1);
+  --danger-line: rgb(242 139 130 / 0.42);
+
+  --teal: #6fd3c4;
+  --teal-soft: rgb(111 211 196 / 0.1);
+  --teal-line: rgb(111 211 196 / 0.4);
+
+  --muted: #9aa6b6;
+  --muted-soft: rgb(154 166 182 / 0.08);
+  --muted-line: rgb(154 166 182 / 0.34);
+
+  /* Label asal data */
+  --demo: #c3a6ff;
+  --demo-soft: rgb(195 166 255 / 0.1);
+  --demo-line: rgb(195 166 255 / 0.45);
+  --testnet: #6cc7f0;
+
+  /* Tipografi: font system, angka tabular, alamat monospace */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.625rem;
+
+  /* Satu skala spacing (kelipatan 4 px) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --shadow-1: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 28px 56px -16px rgb(0 0 0 / 0.6);
+  --glow-accent: 0 8px 24px -10px rgb(145 217 98 / 0.65);
+
+  --control-h: 2.375rem;
+  --control-h-sm: 2rem;
+  --control-h-xs: 1.75rem;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 160ms;
+
+  --header-h: 3.75rem;
+  --bottombar-h: 4.25rem;
+  --sidebar-w: 14.5rem;
+  --content-max: 84rem;
+}
+
+/* Target sentuh sekitar 44 px pada pointer kasar. */
+@media (pointer: coarse) {
+  :root {
+    --control-h: 2.75rem;
+    --control-h-sm: 2.75rem;
+    --control-h-xs: 2.75rem;
+  }
+}
