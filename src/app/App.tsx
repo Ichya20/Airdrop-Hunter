@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveEligibility } from '../adapters/eligibility'
+import { createSourceAdapters, type SourceMode } from '../adapters/sources'
 import { shortenAddress } from '../domain/address'
 import type { HexAddress, Identity } from '../domain/types'
 import {
-  createDemoAdapters,
   createScenarioStore,
   readScenarioParam,
   type DemoScenario,
@@ -30,21 +30,28 @@ const TITLES = { dashboard: 'Dashboard', watchlist: 'Watchlist' } as const
 export function App() {
   const route = useHashRoute()
   const isDesktop = useMediaQuery('(min-width: 64rem)')
-  // Tabel butuh ±900 px; di bawah 1200 px daftar kartu lebih mudah dibaca.
   const tableLayout = useMediaQuery('(min-width: 75rem)')
   const [now, refreshNow] = useNow(30_000)
 
   const storage = useMemo(() => createBrowserStorage(), [])
 
-  // Adapter dibuat sekali; skenario dibaca saat fetch sehingga perubahan berlaku di scan berikutnya.
-  const [demo] = useState(() => {
+  const [sourceRegistry] = useState(() => {
     const store = createScenarioStore(readScenarioParam())
-    return { store, adapters: createDemoAdapters(store.get) }
+    return { store, ...createSourceAdapters(store.get) }
   })
-  const [scenario, setScenario] = useState<DemoScenario>(() => demo.store.get())
-  const { adapters } = demo
-  const scanner = useScanner(adapters)
-  const sourceNames = useMemo(() => new Map(adapters.map((adapter) => [adapter.id, adapter.name])), [adapters])
+  const [scenario, setScenario] = useState<DemoScenario>(() => sourceRegistry.store.get())
+  const [sourceMode, setSourceMode] = useState<SourceMode>('all')
+
+  const enabledSourceIds = useMemo(() => {
+    const selected = sourceRegistry.selectByMode(sourceMode)
+    return new Set(selected.map((adapter) => adapter.id))
+  }, [sourceRegistry, sourceMode])
+
+  const scanner = useScanner(sourceRegistry.allAdapters, enabledSourceIds)
+  const sourceNames = useMemo(
+    () => new Map(sourceRegistry.allAdapters.map((adapter) => [adapter.id, adapter.name])),
+    [sourceRegistry.allAdapters],
+  )
 
   const [identity, setIdentity] = useState<Identity>({ kind: 'demo' })
   const [watchlists, setWatchlists] = useState<Record<string, string[]>>({})
@@ -58,7 +65,6 @@ export function App() {
   const mainRef = useRef<HTMLElement>(null)
 
   const announce = useCallback((message: string) => {
-    // Kosongkan dulu agar pesan yang sama tetap dibacakan, dan tunda sampai dialog tertutup.
     setAnnouncement('')
     window.setTimeout(() => setAnnouncement(message), 80)
   }, [])
@@ -72,7 +78,6 @@ export function App() {
     }
   }, [storage])
 
-  // Pulihkan pengaturan, watchlist, dan checkpoint scan dari IndexedDB saat aplikasi dibuka.
   useEffect(() => {
     let active = true
     void (async () => {
@@ -84,10 +89,12 @@ export function App() {
       if (!active) return
       if (savedSettings) {
         setIdentity(savedSettings.identity)
-        // Gunakan skenario dari URL bila eksplisit, jika tidak pakai skenario tersimpan
+        if (savedSettings.sourceMode) {
+          setSourceMode(savedSettings.sourceMode)
+        }
         const urlHasScenario = new URLSearchParams(window.location.search).has('skenario')
         if (!urlHasScenario) {
-          demo.store.set(savedSettings.scenario)
+          sourceRegistry.store.set(savedSettings.scenario)
           setScenario(savedSettings.scenario)
         }
       }
@@ -101,21 +108,20 @@ export function App() {
     return () => {
       active = false
     }
-  }, [storage, demo.store, scanner.hydrateCheckpoints, refreshStorageStats])
+  }, [storage, sourceRegistry.store, scanner.hydrateCheckpoints, refreshStorageStats])
 
-  // Simpan pengaturan setiap kali identitas atau skenario berubah setelah hidrasi.
   useEffect(() => {
     if (!hydrated) return
     void storage
       .saveSettings({
         identity,
         scenario,
+        sourceMode,
         scanTtlMs: SCAN_TTL_MS,
       })
       .then(() => refreshStorageStats())
-  }, [hydrated, identity, scenario, storage, refreshStorageStats])
+  }, [hydrated, identity, scenario, sourceMode, storage, refreshStorageStats])
 
-  // Simpan checkpoint sumber ke IndexedDB setiap kali scan selesai.
   useEffect(() => {
     if (!hydrated || scanner.state.finishedAt === null) return
     const checkpoints = scanner.state.sources
@@ -131,8 +137,6 @@ export function App() {
     }
   }, [hydrated, scanner.state.finishedAt, scanner.state.sources, storage, refreshStorageStats])
 
-  // Muat dan simpan hasil scan per alamat + chain ID + campaign ID + versi adapter;
-  // bersihkan cache tampilan setiap kali identitas atau jaringan berganti.
   useEffect(() => {
     let active = true
     setCachedRecords(new Map())
@@ -167,7 +171,6 @@ export function App() {
 
   const changeIdentity = useCallback(
     (next: Identity, message: string) => {
-      // Bersihkan cache tampilan dan tutup drawer detail saat identitas/jaringan berganti (R6.2, R7.3).
       setCachedRecords(new Map())
       setIdentity(next)
       setDetail(null)
@@ -196,7 +199,6 @@ export function App() {
   )
   const detailRow = detail ? (rows.find((row) => row.campaign.id === detail.campaignId) ?? null) : null
 
-  // Perbarui "sekarang" saat scan selesai agar waktu relatif langsung akurat.
   useEffect(() => {
     if (scanner.state.finishedAt !== null) refreshNow()
   }, [scanner.state.finishedAt, refreshNow])
@@ -205,7 +207,6 @@ export function App() {
     document.title = `${TITLES[route]} · AirdropHunter`
   }, [route])
 
-  // Pindahkan fokus ke judul halaman setelah navigasi (bukan saat pertama dibuka).
   const previousRoute = useRef(route)
   useEffect(() => {
     if (previousRoute.current === route) return
@@ -239,8 +240,13 @@ export function App() {
   }, [])
 
   const handleScenarioChange = (next: DemoScenario) => {
-    demo.store.set(next)
+    sourceRegistry.store.set(next)
     setScenario(next)
+  }
+
+  const handleSourceModeChange = (next: SourceMode) => {
+    setSourceMode(next)
+    setDetail(null)
   }
 
   const handleExportBackup = useCallback(async (): Promise<string> => {
@@ -259,7 +265,8 @@ export function App() {
         ])
         if (savedSettings) {
           setIdentity(savedSettings.identity)
-          demo.store.set(savedSettings.scenario)
+          if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
+          sourceRegistry.store.set(savedSettings.scenario)
           setScenario(savedSettings.scenario)
         }
         setWatchlists(allWatchlists)
@@ -271,7 +278,7 @@ export function App() {
       }
       return result
     },
-    [storage, demo.store, scanner, refreshStorageStats, announce],
+    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce],
   )
 
   const handleClearStorage = useCallback(async () => {
@@ -301,13 +308,20 @@ export function App() {
           identity={identity}
           scanner={scanner}
           isDesktop={isDesktop}
+          sourceMode={sourceMode}
           onScan={startScan}
           onOpenAccount={() => setAccountOpen(true)}
         />
         <div className="app__body">
           {isDesktop ? <Sidebar route={route} counts={counts} /> : null}
           <main id="main" className="main" ref={mainRef} tabIndex={-1}>
-            <DemoBanner scenario={scenario} compact={!isDesktop} onScenarioChange={handleScenarioChange} />
+            <DemoBanner
+              sourceMode={sourceMode}
+              scenario={scenario}
+              compact={!isDesktop}
+              onSourceModeChange={handleSourceModeChange}
+              onScenarioChange={handleScenarioChange}
+            />
             {route === 'dashboard' ? (
               <DashboardView
                 rows={rows}

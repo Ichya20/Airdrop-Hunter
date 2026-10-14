@@ -1,3 +1,4 @@
+import type { SourceMode } from '../adapters/sources'
 import { DEMO_SCENARIOS, type DemoScenario } from '../demo/demoSources'
 import { checkAddressInput, looksLikeSecret } from '../domain/address'
 import type { Campaign, EligibilityResult, Identity, TxRecord } from '../domain/types'
@@ -21,6 +22,7 @@ const STORE_SCAN_RECORDS = 'scan_records'
 const STORE_CHECKPOINTS = 'source_checkpoints'
 
 const VALID_SCENARIOS = new Set<DemoScenario>(DEMO_SCENARIOS.map((item) => item.value))
+const VALID_SOURCE_MODES = new Set<SourceMode>(['all', 'live', 'demo'])
 
 /** Validasi objek Identity agar tidak pernah memuat private key/seed phrase atau alamat cacat. */
 export function sanitizeIdentity(raw: unknown): Identity | null {
@@ -98,7 +100,6 @@ export function migrateBackupPayload(raw: unknown): {
 
   const nowIso = new Date().toISOString()
 
-  // Migrasi pengaturan
   let settings: StoredSettings | null = null
   if (typeof record.settings === 'object' && record.settings !== null) {
     const s = record.settings as Record<string, unknown>
@@ -107,6 +108,10 @@ export function migrateBackupPayload(raw: unknown): {
       typeof s.scenario === 'string' && VALID_SCENARIOS.has(s.scenario as DemoScenario)
         ? (s.scenario as DemoScenario)
         : 'normal'
+    const sourceMode =
+      typeof s.sourceMode === 'string' && VALID_SOURCE_MODES.has(s.sourceMode as SourceMode)
+        ? (s.sourceMode as SourceMode)
+        : 'all'
     const scanTtlMs =
       typeof s.scanTtlMs === 'number' && Number.isFinite(s.scanTtlMs) && s.scanTtlMs >= 60_000
         ? s.scanTtlMs
@@ -116,12 +121,12 @@ export function migrateBackupPayload(raw: unknown): {
       schemaVersion: STORAGE_SCHEMA_VERSION,
       identity,
       scenario,
+      sourceMode,
       scanTtlMs,
       updatedAt: typeof s.updatedAt === 'string' ? s.updatedAt : nowIso,
     }
   }
 
-  // Migrasi watchlist (v1 mungkin memakai field `identityKey` alih-alih `accountKey`)
   const watchlists: StoredWatchlistRecord[] = []
   if (Array.isArray(record.watchlists)) {
     for (const item of record.watchlists) {
@@ -140,7 +145,6 @@ export function migrateBackupPayload(raw: unknown): {
     }
   }
 
-  // Migrasi scanRecords
   const scanRecords: StoredScanRecord[] = []
   if (Array.isArray(record.scanRecords)) {
     for (const item of record.scanRecords) {
@@ -182,7 +186,6 @@ export function migrateBackupPayload(raw: unknown): {
     }
   }
 
-  // Migrasi sourceCheckpoints
   const sourceCheckpoints: StoredSourceCheckpoint[] = []
   if (Array.isArray(record.sourceCheckpoints)) {
     for (const item of record.sourceCheckpoints) {
@@ -240,10 +243,6 @@ export interface LocalStorageAdapter {
   clearAll(): Promise<void>
 }
 
-/**
- * Implementasi storage di memori (dipakai otomatis bila `indexedDB` tidak tersedia
- * seperti pada lingkungan pengujian Node.js atau mode browser terbatas).
- */
 export function createMemoryStorage(): LocalStorageAdapter {
   let settings: StoredSettings | null = null
   const watchlists = new Map<string, StoredWatchlistRecord>()
@@ -263,6 +262,7 @@ export function createMemoryStorage(): LocalStorageAdapter {
         schemaVersion: STORAGE_SCHEMA_VERSION,
         identity: input.identity,
         scenario: input.scenario,
+        sourceMode: input.sourceMode ?? 'all',
         scanTtlMs: input.scanTtlMs,
         updatedAt: new Date().toISOString(),
       }
@@ -463,10 +463,6 @@ function openDatabase(dbName: string): Promise<IDBDatabase> {
   })
 }
 
-/**
- * Buat instance penyimpanan lokal berbasis IndexedDB dengan fallback otomatis ke memori
- * apabila browser memblokir IndexedDB.
- */
 export function createBrowserStorage(dbName = STORAGE_DB_NAME): LocalStorageAdapter {
   if (typeof window === 'undefined' || !('indexedDB' in window) || window.indexedDB === null) {
     return createMemoryStorage()
@@ -509,6 +505,10 @@ export function createBrowserStorage(dbName = STORAGE_DB_NAME): LocalStorageAdap
       return {
         ...candidate,
         identity: cleanIdentity,
+        sourceMode:
+          candidate.sourceMode && VALID_SOURCE_MODES.has(candidate.sourceMode)
+            ? candidate.sourceMode
+            : 'all',
       }
     },
 
@@ -520,6 +520,7 @@ export function createBrowserStorage(dbName = STORAGE_DB_NAME): LocalStorageAdap
         schemaVersion: STORAGE_SCHEMA_VERSION,
         identity: input.identity,
         scenario: input.scenario,
+        sourceMode: input.sourceMode ?? 'all',
         scanTtlMs: input.scanTtlMs,
         updatedAt: new Date().toISOString(),
       }

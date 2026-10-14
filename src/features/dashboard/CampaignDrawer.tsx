@@ -148,7 +148,6 @@ function DetailContent({
   const deadline = describeDeadline(campaign.deadline, now)
   const isDemo = campaign.origin === 'demo'
 
-  // Pindahkan fokus ke judul tampilan baru saat berpindah antara detail dan preview klaim.
   const previousView = useRef(view)
   useEffect(() => {
     if (previousView.current === view) return
@@ -157,13 +156,22 @@ function DetailContent({
     target?.focus()
   }, [view, claimRef, titleRef])
 
-  const explainLink = (kind: 'situs resmi' | 'checker resmi' | 'situs klaim resmi', url: string | null) => {
+  const openOrExplainLink = (kind: 'situs resmi' | 'checker resmi' | 'situs klaim resmi', url: string | null) => {
     if (url === null) {
       setNotice(`Sumber belum menyediakan ${kind} yang terverifikasi. Jangan memakai tautan dari agregator untuk menghubungkan wallet.`)
       return
     }
+    if (isDemo || hostOf(url).endsWith('.example')) {
+      setNotice(
+        `Tautan DEMO (${hostOf(url)}) tidak dibuka karena bukan situs nyata. Pada campaign LIVE, tombol ini membuka ${kind} di tab baru.`,
+      )
+      return
+    }
+    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
     setNotice(
-      `Tautan DEMO (${hostOf(url)}) tidak dibuka karena bukan situs nyata. Pada data live, tombol ini membuka ${kind} di tab baru.`,
+      `Membuka ${kind} (${hostOf(url)}) di tab baru. Selalu periksa kembali domain resmi sebelum menghubungkan wallet.`,
     )
   }
 
@@ -187,14 +195,14 @@ function DetailContent({
         )
       case 'claim_site':
         return (
-          <button type="button" className="btn btn--primary" onClick={() => explainLink('situs klaim resmi', campaign.officialUrl)}>
+          <button type="button" className="btn btn--primary" onClick={() => openOrExplainLink('situs klaim resmi', campaign.officialUrl)}>
             <Icon name="external" />
             Buka situs klaim resmi
           </button>
         )
       case 'requirements':
         return (
-          <button type="button" className="btn btn--secondary" onClick={() => explainLink('situs resmi', campaign.officialUrl)}>
+          <button type="button" className="btn btn--secondary" onClick={() => openOrExplainLink('situs resmi', campaign.officialUrl)}>
             <Icon name="external" />
             Buka situs resmi
           </button>
@@ -202,7 +210,7 @@ function DetailContent({
       case 'check':
         if (!campaign.sourceVerified) {
           return (
-            <button type="button" className="btn btn--secondary" onClick={() => explainLink('situs resmi', campaign.officialUrl)}>
+            <button type="button" className="btn btn--secondary" onClick={() => openOrExplainLink('situs resmi', campaign.officialUrl)}>
               <Icon name="shield" />
               Periksa sumber
             </button>
@@ -210,7 +218,7 @@ function DetailContent({
         }
         if (campaign.checkerUrl !== null) {
           return (
-            <button type="button" className="btn btn--secondary" onClick={() => explainLink('checker resmi', campaign.checkerUrl)}>
+            <button type="button" className="btn btn--secondary" onClick={() => openOrExplainLink('checker resmi', campaign.checkerUrl)}>
               <Icon name="external" />
               Buka checker resmi
             </button>
@@ -224,7 +232,7 @@ function DetailContent({
               setNotice(
                 identity.kind === 'demo'
                   ? 'Fixture DEMO tidak memiliki data kelayakan untuk campaign ini. Pemeriksaan resmi ditambahkan per campaign di tahap 4.'
-                  : `Pemeriksaan kelayakan untuk ${name} belum tersedia di tahap 2. Adapter eligibility resmi ditambahkan di tahap 4.`,
+                  : `Pemeriksaan kelayakan otomatis untuk ${name} ditambahkan di tahap 4.`,
               )
             }
           >
@@ -241,7 +249,7 @@ function DetailContent({
         )
       case 'reason':
         return (
-          <button type="button" className="btn btn--secondary" onClick={() => explainLink('situs resmi', campaign.officialUrl)}>
+          <button type="button" className="btn btn--secondary" onClick={() => openOrExplainLink('situs resmi', campaign.officialUrl)}>
             <Icon name="external" />
             Buka situs resmi
           </button>
@@ -253,10 +261,17 @@ function DetailContent({
               <Icon name="archive" size={16} />
               Klaim dinonaktifkan
             </span>
-            <button type="button" className="btn btn--secondary" onClick={() => explainLink('situs resmi', campaign.officialUrl)}>
-              <Icon name="external" />
-              Buka situs resmi
-            </button>
+            {campaign.checkerUrl ? (
+              <button type="button" className="btn btn--secondary" onClick={() => openOrExplainLink('checker resmi', campaign.checkerUrl)}>
+                <Icon name="external" />
+                Bukti dokumentasi
+              </button>
+            ) : (
+              <button type="button" className="btn btn--secondary" onClick={() => openOrExplainLink('situs resmi', campaign.officialUrl)}>
+                <Icon name="external" />
+                Buka situs resmi
+              </button>
+            )}
           </>
         )
     }
@@ -304,7 +319,15 @@ function DetailContent({
                   <Icon name="flask" size={16} />
                   <span>Data fixture DEMO: bukan bukti campaign, alokasi, atau kontrak nyata.</span>
                 </p>
-              ) : null}
+              ) : (
+                <p className="notice notice--info">
+                  <Icon name="globe" size={16} />
+                  <span>
+                    Data sumber LIVE ({campaign.foundIn.map((id) => sourceNames.get(id) ?? id).join(', ')}). Selalu
+                    verifikasi domain resmi sebelum menandatangani transaksi.
+                  </span>
+                </p>
+              )}
             </section>
 
             <section aria-labelledby="detail-status-title">
@@ -325,7 +348,7 @@ function DetailContent({
                 <div>
                   <dt>Transaksi</dt>
                   <dd className="status-grid__value">{tx ? TX_TEXT[tx.status] : TX_TEXT.not_sent}</dd>
-                  <dd className="status-grid__sub">{tx ? 'Fixture DEMO' : 'Belum ada transaksi klaim'}</dd>
+                  <dd className="status-grid__sub">{tx ? 'Tercatat' : 'Belum ada transaksi klaim'}</dd>
                 </div>
               </dl>
               <p className="meta-line">
@@ -345,7 +368,18 @@ function DetailContent({
                   <dt>Sumber resmi</dt>
                   <dd>
                     {campaign.officialUrl ? (
-                      <span className="mono break">{hostOf(campaign.officialUrl)}</span>
+                      isDemo ? (
+                        <span className="mono break">{hostOf(campaign.officialUrl)}</span>
+                      ) : (
+                        <a
+                          href={campaign.officialUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mono break"
+                        >
+                          {hostOf(campaign.officialUrl)}
+                        </a>
+                      )
                     ) : (
                       'Belum ditemukan'
                     )}
@@ -354,9 +388,20 @@ function DetailContent({
                 </div>
                 {campaign.checkerUrl ? (
                   <div>
-                    <dt>Checker resmi</dt>
+                    <dt>Checker / Dokumen resmi</dt>
                     <dd>
-                      <span className="mono break">{hostOf(campaign.checkerUrl)}</span>
+                      {isDemo ? (
+                        <span className="mono break">{hostOf(campaign.checkerUrl)}</span>
+                      ) : (
+                        <a
+                          href={campaign.checkerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mono break"
+                        >
+                          {campaign.checkerUrl}
+                        </a>
+                      )}
                     </dd>
                   </div>
                 ) : null}
@@ -385,8 +430,10 @@ function DetailContent({
                   <dd>
                     {campaign.contract ? (
                       <span className="mono break">{campaign.contract.address}</span>
-                    ) : (
+                    ) : isDemo ? (
                       'Tidak ada (fixture DEMO)'
+                    ) : (
+                      'Belum ada kontrak klaim terverifikasi'
                     )}
                   </dd>
                 </div>
@@ -504,7 +551,7 @@ function DetailContent({
               aria-describedby="claim-blocked-reason"
               onClick={() =>
                 setNotice(
-                  'Tidak ada yang dikirim. Campaign DEMO tidak memiliki kontrak nyata. Klaim testnet dengan simulasi kontrak dan receipt diaktifkan di tahap 5.',
+                  'Tidak ada yang dikirim. Klaim testnet dengan simulasi kontrak dan receipt diaktifkan di tahap 5.',
                 )
               }
             >
@@ -512,7 +559,7 @@ function DetailContent({
               Kirim lewat MetaMask
             </button>
             <span id="claim-blocked-reason" className="sr-only">
-              Tidak tersedia untuk fixture DEMO.
+              Klaim kontrak diaktifkan di tahap 5.
             </span>
           </div>
         ) : (

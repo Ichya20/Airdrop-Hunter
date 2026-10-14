@@ -1,3 +1,4 @@
+import type { SourceMode } from '../adapters/sources'
 import { Icon } from '../components/Icon'
 import { LogoMark } from '../components/Logo'
 import type { Identity } from '../domain/types'
@@ -13,6 +14,7 @@ interface AppHeaderProps {
   identity: Identity
   scanner: Scanner
   isDesktop: boolean
+  sourceMode?: SourceMode
   onScan: () => void
   onOpenAccount: () => void
 }
@@ -36,7 +38,14 @@ export function ScanButton({ scanner, onScan, className }: { scanner: Scanner; o
   )
 }
 
-export function AppHeader({ identity, scanner, isDesktop, onScan, onOpenAccount }: AppHeaderProps) {
+export function AppHeader({
+  identity,
+  scanner,
+  isDesktop,
+  sourceMode = 'all',
+  onScan,
+  onOpenAccount,
+}: AppHeaderProps) {
   const unsupportedNet = isUnsupportedWalletChain(identity)
 
   return (
@@ -44,7 +53,8 @@ export function AppHeader({ identity, scanner, isDesktop, onScan, onOpenAccount 
       <a className="brand" href="#/">
         <LogoMark />
         <span className="brand__name">AirdropHunter</span>
-        <span className="origin origin--demo brand__demo">DEMO</span>
+        {sourceMode !== 'demo' ? <span className="origin origin--live brand__demo">LIVE</span> : null}
+        {sourceMode !== 'live' ? <span className="origin origin--demo brand__demo">DEMO</span> : null}
       </a>
 
       <div className="appbar__actions">

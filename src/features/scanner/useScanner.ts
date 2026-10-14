@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { SourceAdapter } from '../../adapters/sources/types'
 import { mergeCampaigns } from '../../domain/normalize'
-import type { Campaign } from '../../domain/types'
+import type { Campaign, DataOrigin } from '../../domain/types'
 import type { StoredSourceCheckpoint } from '../../storage/types'
 import { DEFAULT_SCAN_OPTIONS, runScan, type ScanEvent, type ScanOptions } from './runScan'
 
@@ -20,6 +20,7 @@ export type ScanTrigger = 'manual' | 'open' | 'visible' | 'retry'
 export interface SourceView {
   id: string
   name: string
+  origin: DataOrigin
   phase: SourcePhase
   attempt: number
   error: string | null
@@ -62,6 +63,7 @@ function initState(adapters: readonly SourceAdapter[]): ScannerState {
     sources: adapters.map((adapter) => ({
       id: adapter.id,
       name: adapter.name,
+      origin: adapter.origin,
       phase: 'idle',
       attempt: 0,
       error: null,
@@ -111,10 +113,16 @@ function applyEvent(source: SourceView, event: ScanEvent): SourceView {
   }
 }
 
-function overallStatus(sources: readonly SourceView[], cancelled: boolean): ScanStatus {
+function overallStatus(
+  sources: readonly SourceView[],
+  activeIds: readonly string[],
+  cancelled: boolean,
+): ScanStatus {
   if (cancelled) return 'cancelled'
-  const done = sources.filter((source) => source.phase === 'done').length
-  if (done === sources.length) return 'done'
+  const scoped = activeIds.length > 0 ? sources.filter((s) => activeIds.includes(s.id)) : sources
+  if (scoped.length === 0) return 'idle'
+  const done = scoped.filter((source) => source.phase === 'done').length
+  if (done === scoped.length) return 'done'
   return done === 0 ? 'failed' : 'partial'
 }
 
@@ -173,7 +181,6 @@ function reducer(state: ScannerState, action: Action): ScannerState {
     }
     case 'finish': {
       if (action.runId !== state.runId) return state
-      // Pengaman: sumber yang masih "berjalan" saat run selesai tidak boleh menggantung.
       const sources = state.sources.map((source) =>
         IN_FLIGHT.has(source.phase)
           ? action.cancelled
@@ -184,7 +191,7 @@ function reducer(state: ScannerState, action: Action): ScannerState {
       return {
         ...state,
         sources,
-        status: overallStatus(sources, action.cancelled),
+        status: overallStatus(sources, state.activeIds, action.cancelled),
         finishedAt: action.at,
       }
     }
@@ -201,6 +208,8 @@ function latestIso(values: readonly (string | null)[]): string | null {
 
 export interface Scanner {
   state: ScannerState
+  /** Daftar sumber yang aktif sesuai mode sumber yang dipilih pengguna. */
+  visibleSources: SourceView[]
   campaigns: Campaign[]
   /** ID sumber yang datanya berasal dari scan sebelumnya karena percobaan terakhir gagal/dibatalkan. */
   staleSourceIds: ReadonlySet<string>
@@ -215,6 +224,7 @@ export interface Scanner {
 
 export function useScanner(
   adapters: readonly SourceAdapter[],
+  enabledSourceIds?: ReadonlySet<string>,
   options: ScanOptions = DEFAULT_SCAN_OPTIONS,
   ttlMs: number = SCAN_TTL_MS,
 ): Scanner {
@@ -222,9 +232,24 @@ export function useScanner(
   const controllerRef = useRef<AbortController | null>(null)
   const runIdRef = useRef(0)
 
+  const enabledAdapters = useMemo(
+    () =>
+      enabledSourceIds
+        ? adapters.filter((adapter) => enabledSourceIds.has(adapter.id))
+        : adapters,
+    [adapters, enabledSourceIds],
+  )
+
+  const visibleSources = useMemo(
+    () =>
+      enabledSourceIds
+        ? state.sources.filter((source) => enabledSourceIds.has(source.id))
+        : state.sources,
+    [state.sources, enabledSourceIds],
+  )
+
   const execute = useCallback(
     (targets: readonly SourceAdapter[], trigger: ScanTrigger): boolean => {
-      // Deduplikasi: hanya satu scan berjalan pada satu waktu.
       if (controllerRef.current !== null || targets.length === 0) return false
       const controller = new AbortController()
       controllerRef.current = controller
@@ -262,8 +287,8 @@ export function useScanner(
   )
 
   const start = useCallback(
-    (trigger: ScanTrigger = 'manual') => execute(adapters, trigger),
-    [adapters, execute],
+    (trigger: ScanTrigger = 'manual') => execute(enabledAdapters, trigger),
+    [enabledAdapters, execute],
   )
 
   const retrySource = useCallback(
@@ -282,19 +307,22 @@ export function useScanner(
     dispatch({ type: 'hydrate', checkpoints })
   }, [])
 
-  // Scan otomatis saat dashboard dibuka tanpa data. Timer dibersihkan saat StrictMode
-  // melakukan mount ulang sehingga scan tidak berjalan dua kali.
+  // Scan otomatis saat dashboard dibuka tanpa data.
+  const initialStartedRef = useRef(false)
   useEffect(() => {
-    const timer = window.setTimeout(() => start('open'), 0)
+    if (initialStartedRef.current) return
+    const timer = window.setTimeout(() => {
+      initialStartedRef.current = true
+      start('open')
+    }, 0)
     return () => window.clearTimeout(timer)
   }, [start])
 
-  // Hentikan scan ketika komponen benar-benar dilepas.
   useEffect(() => () => controllerRef.current?.abort(), [])
 
   const lastSuccessAt = useMemo(
-    () => latestIso(state.sources.map((source) => source.lastSuccessAt)),
-    [state.sources],
+    () => latestIso(visibleSources.map((source) => source.lastSuccessAt)),
+    [visibleSources],
   )
 
   // Pembaruan saat tab aktif kembali, hanya jika data melewati TTL.
@@ -314,14 +342,14 @@ export function useScanner(
   }, [start, ttlMs])
 
   const campaigns = useMemo(
-    () => mergeCampaigns(state.sources.flatMap((source) => source.campaigns)),
-    [state.sources],
+    () => mergeCampaigns(visibleSources.flatMap((source) => source.campaigns)),
+    [visibleSources],
   )
 
   const staleSourceIds = useMemo(
     () =>
       new Set(
-        state.sources
+        visibleSources
           .filter(
             (source) =>
               (source.phase === 'error' || source.phase === 'cancelled') &&
@@ -330,16 +358,17 @@ export function useScanner(
           )
           .map((source) => source.id),
       ),
-    [state.sources],
+    [visibleSources],
   )
 
   return {
     state,
+    visibleSources,
     campaigns,
     staleSourceIds,
     lastSuccessAt,
     isRunning: state.status === 'running',
-    hasData: lastSuccessAt !== null,
+    hasData: lastSuccessAt !== null && campaigns.length > 0,
     start,
     retrySource,
     cancel,

@@ -3,7 +3,7 @@
 <img src="docs/assets/banner.svg" alt="AirdropHunter: cari, saring, dan pantau campaign airdrop dari satu panel kerja, langsung di browser" width="100%" />
 
 <p>
-  <img alt="Tahap 2 · Wallet & IndexedDB" src="https://img.shields.io/badge/tahap_2-Wallet_%26_IndexedDB-91D962?style=flat-square&labelColor=171E27" />
+  <img alt="Tahap 3 · Sumber Live" src="https://img.shields.io/badge/tahap_3-Sumber_Live-91D962?style=flat-square&labelColor=171E27" />
   <img alt="React 19" src="https://img.shields.io/badge/React-19-91D962?style=flat-square&logo=react&logoColor=61DAFB&labelColor=171E27" />
   <img alt="TypeScript 6" src="https://img.shields.io/badge/TypeScript-6-91D962?style=flat-square&logo=typescript&logoColor=3178C6&labelColor=171E27" />
   <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-91D962?style=flat-square&logo=vite&logoColor=646CFF&labelColor=171E27" />
@@ -22,15 +22,13 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
 <p>
   <a href="#mulai-cepat"><b>Mulai cepat</b></a> ·
   <a href="#fitur"><b>Fitur</b></a> ·
-  <a href="#tampilan"><b>Tampilan</b></a> ·
-  <a href="#cara-kerja"><b>Cara kerja</b></a> ·
   <a href="#roadmap"><b>Roadmap</b></a>
 </p>
 
 </div>
 
 > [!IMPORTANT]
-> **Status Tahap 2 (Wallet & Data Lokal):** Koneksi **MetaMask Chrome extension** (EIP-6963/EIP-1193), perpindahan jaringan, pemisahan data antar-wallet, serta penyimpanan lokal **IndexedDB** (beserta ekspor/impor cadangan JSON) sudah aktif. Sumber daftar campaign masih menggunakan fixture berlabel `DEMO` hingga adapter live dipasang pada Tahap 3.
+> **Status Tahap 3 (Satu Sumber Live Tervalidasi):** Aplikasi kini memindai sumber live publik (`https://api.llama.fi/protocols`) dan arsip referensi resmi proyek (Arbitrum `$ARB` & Uniswap `$UNI` berlabel **Berakhir**) langsung dari browser dengan *rate limiter* per sumber dan pembaruan berbasis TTL 60 menit. Pengguna dapat memilih mode **Sumber Live + DEMO**, **Hanya Sumber Live**, atau **Hanya Fixture DEMO** di banner atas.
 
 <p align="center">
   <img src="docs/screenshots/showcase.png" alt="Dashboard AirdropHunter di laptop (tabel campaign) dan HP (daftar kartu dengan tombol Cari airdrop)" width="100%" />
@@ -41,6 +39,10 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
 <table>
   <tr>
     <td width="33%" valign="top">
+      <b>🌐 Sumber Live & Rate Limit (Tahap 3)</b><br />
+      Memindai API publik DefiLlama (CORS terbuka) tanpa proxy cloud, dilengkapi pembatasan laju per sumber, penanganan <code>Retry-After</code> HTTP 429, dan arsip kontrak resmi.
+    </td>
+    <td width="33%" valign="top">
       <b>🦊 Koneksi MetaMask (Tahap 2)</b><br />
       Terhubung lewat EIP-6963/EIP-1193 tanpa meminta tanda tangan. Menangani penolakan koneksi, ganti jaringan, dan pergantian akun secara reaktif.
     </td>
@@ -48,15 +50,11 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
       <b>🗄️ IndexedDB & Cadangan (Tahap 2)</b><br />
       Pengaturan, watchlist, dan hasil scan tersimpan per <code>alamat + chain ID + campaign ID + versi adapter</code>, lengkap dengan ekspor/impor JSON.
     </td>
-    <td width="33%" valign="top">
-      <b>🧭 Status yang jujur</b><br />
-      Status campaign, kelayakan wallet, dan transaksi disimpan terpisah. Data gagal atau kosong menjadi <i>belum diketahui</i>, bukan “memenuhi syarat”.
-    </td>
   </tr>
   <tr>
     <td valign="top">
-      <b>🛰️ Scan per sumber</b><br />
-      Progres langsung, <b>Batalkan</b>, dan <b>Coba lagi</b> per sumber. Ada timeout, retry dengan backoff, dan checkpoint sumber tersimpan di IndexedDB.
+      <b>🧭 Status yang jujur</b><br />
+      Status campaign, kelayakan wallet, dan transaksi disimpan terpisah. Indikasi agregator tanpa bukti klaim resmi diberi label <i>Belum terverifikasi</i>, bukan “Siap diklaim”.
     </td>
     <td valign="top">
       <b>📱 Mode pantau HP</b><br />
@@ -90,29 +88,8 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 
 - [x] **Tahap 1** · Dashboard DEMO: scan, filter, detail, watchlist, mode pantau, preview klaim
 - [x] **Tahap 2** · Koneksi MetaMask (EIP-6963/EIP-1193), deteksi jaringan salah, penyimpanan IndexedDB per alamat + chain ID + campaign + versi adapter, migrasi & ekspor/impor cadangan
-- [ ] **Tahap 3** · Satu sumber live tervalidasi dengan pembaruan berbasis TTL
+- [x] **Tahap 3** · Satu sumber live tervalidasi (`docs/sumber-data.md`, `liveDefiLlamaAdapter.ts`, `rateLimit.ts`) dengan pembaruan berbasis TTL dan pembandingan kontrak resmi
 - [ ] **Tahap 4** · Eligibility dari aturan, proof, atau snapshot resmi
 - [ ] **Tahap 5** · Klaim testnet: simulasi, estimasi biaya, konfirmasi wallet, dan receipt
 
-Rinciannya ada di [`tasks.md`](.kiro/specs/airdrop-hunter-mvp/tasks.md), dengan kebutuhan di [`requirements.md`](.kiro/specs/airdrop-hunter-mvp/requirements.md), rancangan di [`design.md`](.kiro/specs/airdrop-hunter-mvp/design.md), dan hasil verifikasi di [`docs/cek-hasil.md`](docs/cek-hasil.md).
-
-## Struktur proyek
-
-```text
-src/
-├── app/              App shell, header, navigasi, routing hash
-├── components/       Ikon, badge, dialog native, tampilan alamat
-├── features/
-│   ├── dashboard/    Daftar, filter, detail, watchlist
-│   ├── scanner/      Orkestrasi scan, hidrasi checkpoint, dan panel status
-│   ├── wallet/       Identitas, deteksi EIP-6963, konektor MetaMask EIP-1193, mode pantau
-│   └── claims/       Preview klaim (cek akun & jaringan MetaMask) dan riwayat transaksi
-├── storage/          IndexedDB v2 (`index.ts`, `keys.ts`, `types.ts`), migrasi, ekspor/impor JSON
-├── adapters/         sources · eligibility · claims
-├── domain/           Tipe, normalisasi, label status, validasi alamat EIP-55
-├── demo/             Fixture berlabel DEMO
-├── tests/            Pengujian otomatis Tahap 2 (`tahap2.test.ts`)
-└── styles/           Token warna, layout, komponen
-.kiro/                Spec (requirements, design, tasks) dan steering
-docs/                 Hasil pemeriksaan dan aset README
-```
+Rinciannya ada di [`tasks.md`](.kiro/specs/airdrop-hunter-mvp/tasks.md), dengan evaluasi sumber data di [`docs/sumber-data.md`](docs/sumber-data.md), kebutuhan di [`requirements.md`](.kiro/specs/airdrop-hunter-mvp/requirements.md), rancangan di [`design.md`](.kiro/specs/airdrop-hunter-mvp/design.md), dan hasil verifikasi di [`docs/cek-hasil.md`](docs/cek-hasil.md).

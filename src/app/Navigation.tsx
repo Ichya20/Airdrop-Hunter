@@ -40,10 +40,10 @@ export function Sidebar({ route, counts }: NavigationProps) {
       </ul>
       <div className="sidebar__note">
         <p className="sidebar__note-title">
-          <Icon name="flask" size={14} />
-          Tahap 2 · Wallet &amp; IndexedDB
+          <Icon name="globe" size={14} />
+          Tahap 3 · Sumber Live
         </p>
-        <p>Tanpa backend. Pengaturan, watchlist, dan hasil scan disimpan di IndexedDB per alamat + chain ID.</p>
+        <p>Tanpa backend. Sumber live DefiLlama &amp; arsip resmi proyek dipindai langsung dari browser dengan TTL 60 menit.</p>
         <p>Wallet: MetaMask Chrome extension di laptop. HP: mode pantau alamat publik.</p>
       </div>
     </nav>

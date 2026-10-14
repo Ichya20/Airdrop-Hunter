@@ -21,11 +21,11 @@
 - [x] 2.3 `src/storage`: IndexedDB untuk pengaturan, watchlist, hasil scan per alamat + chain ID + campaign + versi adapter; migrasi v1→v2 dan backup/import JSON. _R9_
 - [x] 2.4 Tes bermakna (`src/tests/tahap2.test.ts`): turunan label, pemisahan wallet, persistensi setelah refresh, dan migrasi/impor cadangan. _R3, R7, R9_
 
-## Tahap 3 — Satu sumber live
+## Tahap 3 — Satu sumber live (selesai)
 
-- [ ] 3.1 `docs/sumber-data.md`: kandidat, endpoint nyata, format respons, CORS di browser target, autentikasi, rate limit, bukti sumber. _R5_
-- [ ] 3.2 Adapter live di `src/adapters/sources`; rate limit per sumber; fallback "sumber belum didukung"/checker resmi bila CORS atau secret menghalangi. Tanpa proxy cloud. _R5_
-- [ ] 3.3 Bandingkan minimal satu campaign dengan sumber resmi; campaign historis berlabel Berakhir. _R3_
+- [x] 3.1 `docs/sumber-data.md`: kandidat, endpoint nyata (`https://api.llama.fi/protocols`), format respons, CORS di browser target, autentikasi, rate limit, bukti sumber resmi (Arbitrum & Uniswap). _R5_
+- [x] 3.2 Adapter live di `src/adapters/sources` (`liveDefiLlamaAdapter.ts`, `rateLimit.ts`, `index.ts`); rate limit per sumber + penghormatan `Retry-After` HTTP 429; fallback "sumber belum didukung"/checker resmi bila CORS atau secret menghalangi. Tanpa proxy cloud. _R5_
+- [x] 3.3 Bandingkan minimal satu campaign (Arbitrum `$ARB` `0x67a24CE4321aB3aF51c2D0a4801c3E111D88C9d9` di chain 42161 & Uniswap `$UNI` `0x090D4613473dEE047c3f2706764f49E0821D256e` di chain 1) dengan sumber resmi; campaign historis berlabel Berakhir (`ended`). _R3_
 
 ## Tahap 4 — Eligibility
 

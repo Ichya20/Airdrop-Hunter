@@ -1,3 +1,4 @@
+import { OriginBadge } from '../../components/Badges'
 import { Icon, type IconName } from '../../components/Icon'
 import { formatClock, formatDateTime, formatRelative, formatTime } from '../../domain/format'
 import { SCAN_TTL_MS, type ScannerState, type Scanner, type SourceView } from './useScanner'
@@ -11,17 +12,16 @@ interface ScanPanelProps {
 }
 
 function agoText(iso: string, now: number): string {
-  // Jam lokal yang tertinggal beberapa detik tidak boleh menghasilkan "sebentar lagi".
   return formatRelative(iso, Math.max(now, Date.parse(iso)))
 }
 
 function titleFor(state: ScannerState): string {
   switch (state.status) {
     case 'running':
-      if (state.trigger === 'open') return 'Memuat campaign DEMO…'
+      if (state.trigger === 'open') return 'Memuat campaign dari sumber…'
       if (state.trigger === 'visible') return 'Memperbarui data yang usang…'
       if (state.trigger === 'retry') return 'Mencoba lagi sumber yang gagal…'
-      return 'Memindai sumber DEMO…'
+      return 'Memindai sumber airdrop…'
     case 'done':
       return 'Scan selesai'
     case 'partial':
@@ -35,20 +35,18 @@ function titleFor(state: ScannerState): string {
   }
 }
 
-function announcementFor(state: ScannerState, campaignCount: number): string {
-  const total = state.sources.length
-  const ok = state.sources.filter((source) => source.phase === 'done').length
+function announcementFor(state: ScannerState, visibleCount: number, okCount: number, campaignCount: number): string {
   switch (state.status) {
     case 'running':
-      return `Memindai ${state.activeIds.length} sumber DEMO.`
+      return `Memindai ${state.activeIds.length} sumber airdrop.`
     case 'done':
-      return `Scan selesai: ${campaignCount} campaign dari ${total} sumber.`
+      return `Scan selesai: ${campaignCount} campaign dari ${visibleCount} sumber.`
     case 'partial':
-      return `Scan selesai sebagian: ${ok} dari ${total} sumber berhasil. ${campaignCount} campaign ditampilkan.`
+      return `Scan selesai sebagian: ${okCount} dari ${visibleCount} sumber berhasil. ${campaignCount} campaign ditampilkan.`
     case 'failed':
       return 'Scan gagal: semua sumber gagal. Gunakan Coba lagi.'
     case 'cancelled':
-      return `Scan dibatalkan. ${ok} dari ${total} sumber memiliki hasil.`
+      return `Scan dibatalkan. ${okCount} dari ${visibleCount} sumber memiliki hasil.`
     case 'idle':
       return ''
   }
@@ -88,13 +86,13 @@ function phaseText(source: SourceView): string {
 }
 
 export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
-  const { state, isRunning, lastSuccessAt, campaigns } = scanner
+  const { state, visibleSources, isRunning, lastSuccessAt, campaigns } = scanner
   const activeSources = state.sources.filter((source) => state.activeIds.includes(source.id))
   const finished = activeSources.filter(
     (source) => source.phase === 'done' || source.phase === 'error' || source.phase === 'cancelled',
   ).length
-  const okCount = state.sources.filter((source) => source.phase === 'done').length
-  const hasProblem = state.sources.some(
+  const okCount = visibleSources.filter((source) => source.phase === 'done').length
+  const hasProblem = visibleSources.some(
     (source) => source.phase === 'error' || source.phase === 'cancelled' || source.phase === 'retry_wait',
   )
   const stale = lastSuccessAt !== null && now - Date.parse(lastSuccessAt) > SCAN_TTL_MS
@@ -107,13 +105,14 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
 
   const sourceList = (
     <ul className="sources" aria-label="Status per sumber">
-      {state.sources.map((source) => {
+      {visibleSources.map((source) => {
         const icon = PHASE_ICON[source.phase]
         return (
           <li key={source.id} className={`source source--${source.phase}`}>
             <span className="source__icon">
               {icon ? <Icon name={icon} size={16} /> : <span className="spinner" aria-hidden="true" />}
             </span>
+            <OriginBadge origin={source.origin} />
             <span className="source__name">{source.name}</span>
             <span className="source__state">{phaseText(source)}</span>
             {source.phase === 'error' && !isRunning ? (
@@ -133,8 +132,8 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
         <span className="source__icon">
           <Icon name="info" size={16} />
         </span>
-        <span className="source__name">Sumber live</span>
-        <span className="source__state">Belum diintegrasikan (tahap 3)</span>
+        <span className="source__name">Sumber ber-API key / CORS tertutup</span>
+        <span className="source__state">Tidak didukung tanpa backend · gunakan checker resmi proyek</span>
       </li>
     </ul>
   )
@@ -178,7 +177,7 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
             ·
           </span>
           <span>
-            {okCount}/{state.sources.length} sumber berhasil
+            {okCount}/{visibleSources.length} sumber aktif berhasil
           </span>
           <span className="scan__dot" aria-hidden="true">
             ·
@@ -196,7 +195,6 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
         ) : null}
 
         {compact ? (
-          // Remount saat status berubah agar keadaan terbuka/tertutup awal mengikuti hasil terbaru.
           <details
             key={`${state.runId}:${state.status}`}
             className="scan__details"
@@ -228,7 +226,7 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
       </div>
 
       <p className="sr-only" role="status" aria-live="polite">
-        {announcementFor(state, campaigns.length)}
+        {announcementFor(state, visibleSources.length, okCount, campaigns.length)}
       </p>
     </section>
   )

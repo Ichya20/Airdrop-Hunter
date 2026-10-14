@@ -58,7 +58,6 @@ export function DashboardView({
   const name = identityName(identity)
   const sortText = SORT_OPTIONS.find((option) => option.value === filters.sort)?.caption ?? ''
 
-  // Umumkan jumlah hasil setelah filter berubah (bukan setiap scan atau render).
   const visibleCountRef = useRef(visible.length)
   useEffect(() => {
     visibleCountRef.current = visible.length
@@ -86,7 +85,7 @@ export function DashboardView({
       <EmptyState
         icon="alert"
         tone="error"
-        title="Semua sumber DEMO gagal dihubungi"
+        title="Semua sumber aktif gagal dihubungi"
         actions={
           <button type="button" className="btn btn--primary" onClick={onScan}>
             <Icon name="refresh" />
@@ -94,8 +93,7 @@ export function DashboardView({
           </button>
         }
       >
-        <p>Belum ada hasil yang bisa ditampilkan. Detail error tiap sumber ada di panel scan di atas.</p>
-        <p className="muted">Skenario DEMO “Semua gagal” sengaja membuat setiap sumber gagal. Pilih “Normal” untuk memulihkan.</p>
+        <p>Belum ada hasil yang bisa ditampilkan. Detail error tiap sumber (termasuk bila ada pemblokiran CORS atau jaringan) ada di panel scan di atas.</p>
       </EmptyState>
     )
   } else if (!hasData) {
@@ -110,14 +108,14 @@ export function DashboardView({
           </button>
         }
       >
-        <p>Belum ada sumber yang selesai. Jalankan scan lagi untuk memuat campaign DEMO.</p>
+        <p>Belum ada sumber yang selesai. Jalankan scan lagi untuk memuat campaign.</p>
       </EmptyState>
     )
   } else if (rows.length === 0) {
     content = (
       <EmptyState
         icon="radar"
-        title="Belum ada campaign dari sumber DEMO"
+        title="Belum ada campaign dari sumber aktif"
         actions={
           <button type="button" className="btn btn--primary" onClick={onScan}>
             <Icon name="radar" />
@@ -126,7 +124,6 @@ export function DashboardView({
         }
       >
         <p>Sumber merespons tanpa campaign. Ini bukan berarti tidak ada airdrop di luar sumber yang didukung.</p>
-        <p className="muted">Pada skenario DEMO “Kosong”, ganti ke “Normal” lalu jalankan Cari airdrop.</p>
       </EmptyState>
     )
   } else if (visible.length === 0) {
@@ -169,7 +166,7 @@ export function DashboardView({
             Dashboard
           </h1>
           <p className="view__sub">
-            Campaign dari sumber DEMO, dilihat sebagai <strong>{name}</strong>.
+            Campaign dari sumber yang didukung, dilihat sebagai <strong>{name}</strong>.
           </p>
         </div>
       </div>
@@ -269,8 +266,7 @@ function IdentityNotice({
         <div>
           <p>
             <strong>MetaMask terhubung ({net.name} · chain ID {identity.chainId}).</strong> Data DEMO dipisahkan dari
-            wallet nyata sehingga kelayakan tampil “Belum diketahui” hingga adapter resmi (tahap 4). Watchlist dan hasil
-            scan alamat ini tersimpan di IndexedDB.
+            wallet nyata. Pemeriksaan eligibility live otomatis akan diaktifkan di tahap 4.
           </p>
         </div>
         <button type="button" className="btn btn--secondary btn--sm" onClick={onOpenAccount}>
@@ -284,8 +280,8 @@ function IdentityNotice({
       <Icon name="eye" size={18} />
       <div>
         <p>
-          <strong>Mode pantau · baca saja.</strong> Data DEMO hanya punya contoh kelayakan untuk Akun DEMO, jadi
-          kelayakan alamat ini tampil “Belum diketahui”. Watchlist alamat ini tersimpan secara terpisah di IndexedDB.
+          <strong>Mode pantau · baca saja.</strong> Watchlist dan hasil scan alamat ini disimpan secara terpisah di
+          IndexedDB lokal.
         </p>
       </div>
       <button type="button" className="btn btn--secondary btn--sm" onClick={onOpenAccount}>

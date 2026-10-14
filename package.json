@@ -1,8 +1,8 @@
 {
   "name": "airdrop-hunter",
   "private": true,
-  "version": "0.2.0",
-  "description": "AirdropHunter tahap 2: dashboard untuk mencari dan memantau campaign airdrop dengan koneksi MetaMask Chrome extension (EIP-6963/EIP-1193), mode pantau alamat publik, dan penyimpanan lokal IndexedDB.",
+  "version": "0.3.0",
+  "description": "AirdropHunter tahap 3: dashboard airdrop dengan sumber live tervalidasi (DefiLlama + arsip resmi proyek), koneksi MetaMask Chrome extension (EIP-6963/EIP-1193), mode pantau HP, dan penyimpanan IndexedDB.",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

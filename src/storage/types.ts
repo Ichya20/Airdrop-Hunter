@@ -1,3 +1,4 @@
+import type { SourceMode } from '../adapters/sources'
 import type { DemoScenario } from '../demo/demoSources'
 import type { Campaign, EligibilityResult, Identity, TxRecord } from '../domain/types'
 
@@ -9,6 +10,7 @@ export interface StoredSettings {
   schemaVersion: number
   identity: Identity
   scenario: DemoScenario
+  sourceMode?: SourceMode
   scanTtlMs: number
   updatedAt: string
 }
