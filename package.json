@@ -1,0 +1,31 @@
+{
+  "name": "airdrop-hunter",
+  "private": true,
+  "version": "0.2.0",
+  "description": "AirdropHunter tahap 2: dashboard untuk mencari dan memantau campaign airdrop dengan koneksi MetaMask Chrome extension (EIP-6963/EIP-1193), mode pantau alamat publik, dan penyimpanan lokal IndexedDB.",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc -b",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "viem": "^2.57.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}
