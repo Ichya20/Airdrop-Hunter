@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="banner-title banner-desc">
+  <title id="banner-title">AirdropHunter</title>
+  <desc id="banner-desc">Dashboard untuk mencari, menyaring, dan memantau kandidat airdrop langsung di browser. Tahap 3: metadata live dan arsip lokal.</desc>
+  <style>
+    .sans { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace; }
+    .still { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .motion { display: none; }
+      .still { display: inline; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121821"/>
+      <stop offset="1" stop-color="#0B0F14"/>
+    </linearGradient>
+    <radialGradient id="glow-left" cx="0.12" cy="0.05" r="0.55">
+      <stop offset="0" stop-color="#91D962" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#91D962" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-radar" gradientUnits="userSpaceOnUse" cx="1010" cy="180" r="210">
+      <stop offset="0" stop-color="#91D962" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#91D962" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#E6EDF5" stroke-opacity="0.05"/>
+    </pattern>
+    <radialGradient id="grid-fade" cx="0.62" cy="0.5" r="0.62">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="grid-mask">
+      <rect width="1280" height="360" fill="url(#grid-fade)"/>
+    </mask>
+    <linearGradient id="sweep" gradientUnits="userSpaceOnUse" x1="1100" y1="180" x2="1040" y2="76">
+      <stop offset="0" stop-color="#91D962" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#91D962" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#91D962" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#91D962" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#91D962" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <clipPath id="frame">
+      <rect width="1280" height="360" rx="24"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="360" fill="url(#bg)"/>
+    <rect width="1280" height="360" fill="url(#grid)" mask="url(#grid-mask)"/>
+    <rect width="1280" height="360" fill="url(#glow-left)"/>
+    <rect width="1280" height="360" fill="url(#glow-radar)"/>
+
+    <!-- Radar -->
+    <circle cx="1010" cy="180" r="152" fill="#0B0F14" fill-opacity="0.55" stroke="#91D962" stroke-opacity="0.28"/>
+    <circle cx="1010" cy="180" r="104" fill="none" stroke="#91D962" stroke-opacity="0.16"/>
+    <circle cx="1010" cy="180" r="56" fill="none" stroke="#91D962" stroke-opacity="0.16"/>
+    <path d="M858 180H1162M1010 28V332" stroke="#91D962" stroke-opacity="0.12"/>
+
+    <g class="motion">
+      <g>
+        <path d="M1010 180L1162 180A152 152 0 0 0 1086 48.36Z" fill="url(#sweep)"/>
+        <path d="M1010 180H1162" stroke="#91D962" stroke-opacity="0.8" stroke-width="2"/>
+        <animateTransform attributeName="transform" type="rotate" from="0 1010 180" to="360 1010 180" dur="6s" repeatCount="indefinite"/>
+      </g>
+    </g>
+    <g class="still" transform="rotate(-20 1010 180)">
+      <path d="M1010 180L1162 180A152 152 0 0 0 1086 48.36Z" fill="url(#sweep)"/>
+      <path d="M1010 180H1162" stroke="#91D962" stroke-opacity="0.8" stroke-width="2"/>
+    </g>
+
+    <circle cx="1010" cy="180" r="9" fill="#91D962" opacity="0.5" filter="url(#soft-glow)"/>
+    <circle cx="1010" cy="180" r="4.5" fill="#91D962"/>
+
+    <!-- Temuan: Siap diklaim -->
+    <g class="motion">
+      <circle cx="1060" cy="93.4" r="5" fill="none" stroke="#91D962" stroke-width="2" opacity="0">
+        <animate attributeName="r" values="5;22;22" keyTimes="0;0.25;1" dur="6s" begin="5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.25;1" dur="6s" begin="5s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <circle cx="1060" cy="93.4" r="10" fill="#91D962" opacity="0.18"/>
+    <circle cx="1060" cy="93.4" r="5" fill="#91D962"/>
+    <rect x="1076" y="80.4" width="148" height="26" rx="13" fill="#171E27" fill-opacity="0.94" stroke="#91D962" stroke-opacity="0.45"/>
+    <circle cx="1092" cy="93.4" r="3.5" fill="#91D962"/>
+    <text x="1104" y="98.4" class="mono" font-size="15" font-weight="600" fill="#91D962">Siap diklaim</text>
+
+    <!-- Temuan: Peluang -->
+    <g class="motion">
+      <circle cx="923.4" cy="230" r="5" fill="none" stroke="#F2B84B" stroke-width="2" opacity="0">
+        <animate attributeName="r" values="5;22;22" keyTimes="0;0.25;1" dur="6s" begin="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.25;1" dur="6s" begin="2.5s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <circle cx="923.4" cy="230" r="10" fill="#F2B84B" opacity="0.18"/>
+    <circle cx="923.4" cy="230" r="5" fill="#F2B84B"/>
+    <rect x="804.4" y="217" width="103" height="26" rx="13" fill="#171E27" fill-opacity="0.94" stroke="#F2B84B" stroke-opacity="0.45"/>
+    <circle cx="820.4" cy="230" r="3.5" fill="#F2B84B"/>
+    <text x="832.4" y="235" class="mono" font-size="15" font-weight="600" fill="#F2B84B">Peluang</text>
+
+    <!-- Temuan: Berakhir -->
+    <g class="motion">
+      <circle cx="1085.85" cy="270.39" r="5" fill="none" stroke="#9AA6B6" stroke-width="2" opacity="0">
+        <animate attributeName="r" values="5;22;22" keyTimes="0;0.25;1" dur="6s" begin="0.83s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.25;1" dur="6s" begin="0.83s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <circle cx="1085.85" cy="270.39" r="10" fill="#9AA6B6" opacity="0.16"/>
+    <circle cx="1085.85" cy="270.39" r="5" fill="#9AA6B6"/>
+    <rect x="1101.85" y="257.39" width="112" height="26" rx="13" fill="#171E27" fill-opacity="0.94" stroke="#9AA6B6" stroke-opacity="0.45"/>
+    <circle cx="1117.85" cy="270.39" r="3.5" fill="#9AA6B6"/>
+    <text x="1129.85" y="275.39" class="mono" font-size="15" font-weight="600" fill="#9AA6B6">Berakhir</text>
+
+    <!-- Label tahap -->
+    <rect x="72" y="58" width="168" height="30" rx="15" fill="#91D962" fill-opacity="0.1" stroke="#91D962" stroke-opacity="0.6"/>
+    <text x="88" y="78" class="mono" font-size="14" font-weight="700" letter-spacing="1.4" fill="#91D962">TAHAP 3 · LIVE</text>
+
+    <!-- Logo + nama -->
+    <g transform="translate(72 106) scale(2)">
+      <g opacity="0.55" filter="url(#soft-glow)">
+        <circle cx="16" cy="16" r="10.5" stroke="#91D962" stroke-width="2" fill="none"/>
+      </g>
+      <circle cx="16" cy="16" r="10.5" stroke="#91D962" stroke-width="2" fill="none"/>
+      <path d="M16 2.5v5M16 24.5v5M2.5 16h5M24.5 16h5" stroke="#91D962" stroke-width="2" stroke-linecap="round"/>
+      <path d="M16 10.4c2.5 2.9 3.8 5 3.8 6.6a3.8 3.8 0 0 1-7.6 0c0-1.6 1.3-3.7 3.8-6.6Z" fill="#91D962"/>
+    </g>
+    <text x="156" y="160" class="sans" font-size="64" font-weight="700" letter-spacing="-1.2"><tspan fill="#E6EDF5">Airdrop</tspan><tspan fill="#91D962">Hunter</tspan></text>
+
+    <text x="74" y="208" class="sans" font-size="22" fill="#A8B5C7">Cari, saring, dan pantau campaign airdrop</text>
+    <text x="74" y="238" class="sans" font-size="22" fill="#A8B5C7">dari satu panel kerja, langsung di browser.</text>
+
+    <!-- Ciri utama -->
+    <rect x="72" y="268" width="271" height="36" rx="18" fill="#171E27" stroke="#2B3543"/>
+    <circle cx="90" cy="286" r="4" fill="#F6851B"/>
+    <text x="102" y="291" class="mono" font-size="15" fill="#E6EDF5">MetaMask Chrome extension</text>
+
+    <rect x="355" y="268" width="172" height="36" rx="18" fill="#171E27" stroke="#2B3543"/>
+    <circle cx="373" cy="286" r="4" fill="#6FD3C4"/>
+    <text x="385" y="291" class="mono" font-size="15" fill="#E6EDF5">Mode pantau HP</text>
+
+    <rect x="539" y="268" width="163" height="36" rx="18" fill="#171E27" stroke="#2B3543"/>
+    <circle cx="557" cy="286" r="4" fill="#91D962"/>
+    <text x="569" y="291" class="mono" font-size="15" fill="#E6EDF5">Tanpa backend</text>
+
+    <rect x="0" y="357" width="1280" height="3" fill="url(#edge)"/>
+  </g>
+  <rect x="0.5" y="0.5" width="1279" height="359" rx="23.5" fill="none" stroke="#2B3543"/>
+</svg>
