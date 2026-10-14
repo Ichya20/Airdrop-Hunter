@@ -56,7 +56,7 @@ export function CampaignTable({ rows, identityLabel, sortText, now, onOpen, onTo
                         <span>
                           {KIND_TEXT[campaign.kind]} · {campaign.project}
                         </span>
-                        <OriginBadge origin={campaign.origin} />
+                        <OriginBadge origin={campaign.origin} sourceKind={campaign.sourceKind} />
                         {row.stale ? <span className="tag tag--warning">Data lama</span> : null}
                       </span>
                     </div>

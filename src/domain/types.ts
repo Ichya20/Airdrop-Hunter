@@ -41,6 +41,8 @@ export interface Campaign {
   chainId: number
   status: CampaignStatus
   origin: DataOrigin
+  /** Membedakan respons API dari katalog arsip lokal dalam mode sumber live. */
+  sourceKind?: 'api' | 'local-archive'
   /** ID sumber yang memuat campaign ini (setelah dedupe bisa lebih dari satu). */
   foundIn: string[]
   officialUrl: string | null

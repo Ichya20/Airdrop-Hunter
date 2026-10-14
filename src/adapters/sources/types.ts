@@ -14,12 +14,17 @@ const RETRYABLE: ReadonlySet<SourceErrorKind> = new Set(['network', 'timeout', '
 export class SourceError extends Error {
   readonly kind: SourceErrorKind
   readonly retryable: boolean
+  /** Jeda minimum sebelum percobaan berikutnya, bila sumber membatasinya. */
+  readonly retryAfterMs: number | undefined
 
-  constructor(kind: SourceErrorKind, message: string) {
+  constructor(kind: SourceErrorKind, message: string, retryAfterMs?: number) {
     super(message)
     this.name = 'SourceError'
     this.kind = kind
     this.retryable = RETRYABLE.has(kind)
+    this.retryAfterMs = retryAfterMs !== undefined && Number.isFinite(retryAfterMs)
+      ? Math.max(0, retryAfterMs)
+      : undefined
   }
 }
 
@@ -42,6 +47,8 @@ export interface SourceAdapter {
   description: string
   /** Mengembalikan campaign yang sudah dinormalisasi, atau melempar `SourceError`. */
   fetchCampaigns(context: SourceFetchContext): Promise<Campaign[]>
+  /** Jeda yang masih diwajibkan limiter sebelum mencoba sumber ini kembali. */
+  getRetryDelayMs?(manualRetry: boolean): number
 }
 
 /** Hasil terstruktur per sumber yang disimpan scanner. */
@@ -81,14 +88,25 @@ export function delay(ms: number, signal: AbortSignal): Promise<void> {
       reject(abortReason(signal))
       return
     }
+    let timer: ReturnType<typeof setTimeout>
     const onAbort = () => {
       clearTimeout(timer)
       reject(abortReason(signal))
     }
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
+    // Timer browser meluap untuk jeda > 2^31-1 ms; tunggu dalam potongan agar
+    // Retry-After panjang tidak berubah menjadi retry langsung.
+    const schedule = (remainingMs: number) => {
+      const chunkMs = Math.min(remainingMs, 2_147_483_647)
+      timer = setTimeout(() => {
+        if (remainingMs > chunkMs) {
+          schedule(remainingMs - chunkMs)
+          return
+        }
+        signal.removeEventListener('abort', onAbort)
+        resolve()
+      }, chunkMs)
+    }
+    schedule(Math.max(0, ms))
     signal.addEventListener('abort', onAbort, { once: true })
   })
 }

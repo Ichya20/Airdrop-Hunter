@@ -40,7 +40,7 @@ export function CampaignList({ rows, identityLabel, now, onOpen, onToggleWatch }
             </div>
             <div className="citem__status">
               <StatusBadge label={row.label} size="sm" />
-              <OriginBadge origin={campaign.origin} />
+              <OriginBadge origin={campaign.origin} sourceKind={campaign.sourceKind} />
               {row.stale ? <span className="tag tag--warning">Data lama</span> : null}
             </div>
             <p className="citem__sub">{statusSubtext(row)}</p>

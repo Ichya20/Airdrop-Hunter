@@ -145,11 +145,15 @@ function AccountContent({
   }
 
   const handleClearStorage = async () => {
-    await onClearStorage()
-    setStorageNotice({
-      tone: 'info',
-      text: 'Seluruh data IndexedDB lokal telah dibersihkan.',
-    })
+    try {
+      await onClearStorage()
+      setStorageNotice({ tone: 'info', text: 'Seluruh data IndexedDB lokal telah dibersihkan.' })
+    } catch (cause: unknown) {
+      setStorageNotice({
+        tone: 'danger',
+        text: cause instanceof Error ? cause.message : 'Data lokal belum dapat dibersihkan. Coba lagi.',
+      })
+    }
   }
 
   const isConnecting = phase === 'connecting'

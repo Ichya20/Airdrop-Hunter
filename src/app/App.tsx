@@ -41,13 +41,15 @@ export function App() {
   })
   const [scenario, setScenario] = useState<DemoScenario>(() => sourceRegistry.store.get())
   const [sourceMode, setSourceMode] = useState<SourceMode>('all')
+  const [hydrated, setHydrated] = useState(false)
 
   const enabledSourceIds = useMemo(() => {
     const selected = sourceRegistry.selectByMode(sourceMode)
     return new Set(selected.map((adapter) => adapter.id))
   }, [sourceRegistry, sourceMode])
 
-  const scanner = useScanner(sourceRegistry.allAdapters, enabledSourceIds)
+  const scanner = useScanner(sourceRegistry.allAdapters, enabledSourceIds, undefined, SCAN_TTL_MS, hydrated)
+  const { hydrateCheckpoints } = scanner
   const sourceNames = useMemo(
     () => new Map(sourceRegistry.allAdapters.map((adapter) => [adapter.id, adapter.name])),
     [sourceRegistry.allAdapters],
@@ -57,7 +59,6 @@ export function App() {
   const [watchlists, setWatchlists] = useState<Record<string, string[]>>({})
   const [cachedRecords, setCachedRecords] = useState<ReadonlyMap<string, StoredScanRecord>>(() => new Map())
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null)
-  const [hydrated, setHydrated] = useState(false)
   const [detail, setDetail] = useState<DetailRequest | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
@@ -81,34 +82,37 @@ export function App() {
   useEffect(() => {
     let active = true
     void (async () => {
-      const [savedSettings, allWatchlists, checkpoints] = await Promise.all([
-        storage.loadSettings(),
-        storage.loadAllWatchlists(),
-        storage.loadSourceCheckpoints(),
-      ])
-      if (!active) return
-      if (savedSettings) {
-        setIdentity(savedSettings.identity)
-        if (savedSettings.sourceMode) {
-          setSourceMode(savedSettings.sourceMode)
+      try {
+        const [savedSettings, allWatchlists, checkpoints] = await Promise.all([
+          storage.loadSettings(),
+          storage.loadAllWatchlists(),
+          storage.loadSourceCheckpoints(),
+        ])
+        if (!active) return
+        if (savedSettings) {
+          setIdentity(savedSettings.identity)
+          if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
+          const urlHasScenario = new URLSearchParams(window.location.search).has('skenario')
+          if (!urlHasScenario) {
+            sourceRegistry.store.set(savedSettings.scenario)
+            setScenario(savedSettings.scenario)
+          }
         }
-        const urlHasScenario = new URLSearchParams(window.location.search).has('skenario')
-        if (!urlHasScenario) {
-          sourceRegistry.store.set(savedSettings.scenario)
-          setScenario(savedSettings.scenario)
+        setWatchlists(allWatchlists)
+        hydrateCheckpoints(checkpoints)
+      } catch {
+        if (active) announce('Data lokal belum dapat dipulihkan. Aplikasi akan memulai scan baru.')
+      } finally {
+        if (active) {
+          setHydrated(true)
+          await refreshStorageStats()
         }
       }
-      setWatchlists(allWatchlists)
-      if (checkpoints.length > 0) {
-        scanner.hydrateCheckpoints(checkpoints)
-      }
-      setHydrated(true)
-      await refreshStorageStats()
     })()
     return () => {
       active = false
     }
-  }, [storage, sourceRegistry.store, scanner.hydrateCheckpoints, refreshStorageStats])
+  }, [storage, sourceRegistry.store, hydrateCheckpoints, refreshStorageStats, announce])
 
   useEffect(() => {
     if (!hydrated) return
@@ -125,9 +129,10 @@ export function App() {
   useEffect(() => {
     if (!hydrated || scanner.state.finishedAt === null) return
     const checkpoints = scanner.state.sources
-      .filter((s) => s.lastSuccessAt !== null && s.campaigns.length > 0)
+      .filter((s) => s.lastSuccessAt !== null)
       .map((s) => ({
         sourceId: s.id,
+        adapterVersion: s.adapterVersion,
         lastSuccessAt: s.lastSuccessAt,
         campaigns: s.campaigns,
         updatedAt: scanner.state.finishedAt ?? new Date().toISOString(),
@@ -139,7 +144,6 @@ export function App() {
 
   useEffect(() => {
     let active = true
-    setCachedRecords(new Map())
     if (!hydrated || scanner.campaigns.length === 0 || identity.kind === 'none') {
       return () => {
         active = false
@@ -256,8 +260,13 @@ export function App() {
 
   const handleImportBackup = useCallback(
     async (rawJson: string): Promise<ImportBackupResult> => {
+      if (scanner.isRunning) {
+        return { ok: false, message: 'Batalkan atau tunggu scan selesai sebelum mengimpor cadangan.' }
+      }
       const result = await storage.importBackup(rawJson)
       if (result.ok) {
+        setCachedRecords(new Map())
+        setDetail(null)
         const [savedSettings, allWatchlists, checkpoints] = await Promise.all([
           storage.loadSettings(),
           storage.loadAllWatchlists(),
@@ -268,11 +277,14 @@ export function App() {
           if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
           sourceRegistry.store.set(savedSettings.scenario)
           setScenario(savedSettings.scenario)
+        } else {
+          setIdentity({ kind: 'demo' })
+          setSourceMode('all')
+          sourceRegistry.store.set('normal')
+          setScenario('normal')
         }
         setWatchlists(allWatchlists)
-        if (checkpoints.length > 0) {
-          scanner.hydrateCheckpoints(checkpoints)
-        }
+        scanner.hydrateCheckpoints(checkpoints, true)
         await refreshStorageStats()
         announce('Cadangan data lokal berhasil diimpor.')
       }
@@ -282,12 +294,15 @@ export function App() {
   )
 
   const handleClearStorage = useCallback(async () => {
+    if (scanner.isRunning) throw new Error('Batalkan atau tunggu scan selesai sebelum membersihkan cache.')
     await storage.clearAll()
+    scanner.hydrateCheckpoints([], true)
     setWatchlists({})
     setCachedRecords(new Map())
+    setDetail(null)
     await refreshStorageStats()
     announce('Cache IndexedDB lokal telah dibersihkan.')
-  }, [storage, refreshStorageStats, announce])
+  }, [storage, scanner, refreshStorageStats, announce])
 
   const counts = { dashboard: rows.length, watchlist: rows.filter((row) => row.watched).length }
 

@@ -82,9 +82,8 @@ export function DemoBanner({
           </span>
         ) : null}
         <span>
-          <strong>Tahap 3 aktif:</strong> sumber live publik <code>api.llama.fi/protocols</code> + arsip resmi proyek
-          dipindai langsung dari browser dengan pembatasan laju (rate limit) dan pembaruan berbasis TTL 60 menit. Asal
-          data <strong>LIVE</strong> dan <strong>DEMO</strong> selalu diberi label terpisah.
+          <strong>Tahap 3:</strong> kandidat protokol dari DefiLlama dengan cache 60 menit. Referensi Arbitrum dan
+          Uniswap berlabel <strong>ARSIP LOKAL</strong>. Kelayakan wallet belum diperiksa.
         </span>
       </p>
       {compact ? (

@@ -363,6 +363,13 @@
   background: var(--accent-soft);
 }
 
+.origin--archive {
+  color: var(--muted);
+  border-style: solid;
+  border-color: var(--muted-line);
+  background: var(--muted-soft);
+}
+
 .tag {
   display: inline-flex;
   align-items: center;

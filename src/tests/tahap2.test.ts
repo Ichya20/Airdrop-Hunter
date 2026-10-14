@@ -4,7 +4,7 @@ import { checkAddressInput, looksLikeSecret } from '../domain/address'
 import { deriveLabel, resolveAction } from '../domain/status'
 import type { Campaign, EligibilityResult, HexAddress, Identity, TxRecord } from '../domain/types'
 import { resolveTransaction } from '../features/claims/resolveTransaction'
-import { buildChecks } from '../features/claims/ClaimPreview'
+import { buildChecks } from '../features/claims/preClaimChecks'
 import { buildRows } from '../features/dashboard/rows'
 import { identityKey, isUnsupportedWalletChain, walletAccountKey } from '../features/wallet/identity'
 import {

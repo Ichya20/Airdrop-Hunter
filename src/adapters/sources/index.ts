@@ -17,12 +17,12 @@ export const SOURCE_MODE_OPTIONS: readonly SourceModeOption[] = [
   {
     value: 'all',
     label: 'Sumber Live + DEMO',
-    hint: 'Memindai endpoint live DefiLlama beserta 3 sumber fixture DEMO (masing-masing berlabel LIVE dan DEMO).',
+    hint: 'Metadata LIVE DefiLlama, referensi ARSIP LOKAL, dan 3 sumber fixture DEMO dengan label masing-masing.',
   },
   {
     value: 'live',
     label: 'Hanya Sumber Live',
-    hint: 'Memindai endpoint publik DefiLlama (https://api.llama.fi/protocols) dan arsip resmi proyek.',
+    hint: 'Metadata protokol dari DefiLlama beserta referensi ARSIP LOKAL; belum memeriksa eligibility wallet.',
   },
   {
     value: 'demo',

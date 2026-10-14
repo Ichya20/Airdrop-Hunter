@@ -1,6 +1,6 @@
 import type { NetworkInfo } from '../domain/networks'
 import { LABEL_META, ORIGIN_TEXT } from '../domain/status'
-import type { DashboardLabel, DataOrigin } from '../domain/types'
+import type { Campaign, DashboardLabel, DataOrigin } from '../domain/types'
 import { Icon, type IconName } from './Icon'
 import { LABEL_ICON } from './labelIcons'
 
@@ -21,11 +21,12 @@ const ORIGIN_ICON: Record<DataOrigin, IconName> = {
   live: 'shield',
 }
 
-export function OriginBadge({ origin }: { origin: DataOrigin }) {
+export function OriginBadge({ origin, sourceKind }: { origin: DataOrigin; sourceKind?: Campaign['sourceKind'] }) {
+  const archived = sourceKind === 'local-archive'
   return (
-    <span className={`origin origin--${origin}`}>
+    <span className={`origin origin--${archived ? 'archive' : origin}`}>
       <Icon name={ORIGIN_ICON[origin]} size={12} />
-      {ORIGIN_TEXT[origin]}
+      {archived ? 'ARSIP LOKAL' : ORIGIN_TEXT[origin]}
     </span>
   )
 }

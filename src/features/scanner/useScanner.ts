@@ -4,6 +4,7 @@ import { mergeCampaigns } from '../../domain/normalize'
 import type { Campaign, DataOrigin } from '../../domain/types'
 import type { StoredSourceCheckpoint } from '../../storage/types'
 import { DEFAULT_SCAN_OPTIONS, runScan, type ScanEvent, type ScanOptions } from './runScan'
+import { sourcesNeedingRefresh } from './scanCache'
 
 export type SourcePhase =
   | 'idle'
@@ -21,6 +22,7 @@ export interface SourceView {
   id: string
   name: string
   origin: DataOrigin
+  adapterVersion: string
   phase: SourcePhase
   attempt: number
   error: string | null
@@ -45,7 +47,7 @@ type Action =
   | { type: 'start'; runId: number; trigger: ScanTrigger; sourceIds: string[]; at: string }
   | { type: 'event'; runId: number; event: ScanEvent }
   | { type: 'finish'; runId: number; cancelled: boolean; at: string }
-  | { type: 'hydrate'; checkpoints: readonly StoredSourceCheckpoint[] }
+  | { type: 'hydrate'; checkpoints: readonly StoredSourceCheckpoint[]; replace: boolean }
 
 /** TTL awal sebelum data dianggap usang (60 menit). */
 export const SCAN_TTL_MS = 60 * 60_000
@@ -64,6 +66,7 @@ function initState(adapters: readonly SourceAdapter[]): ScannerState {
       id: adapter.id,
       name: adapter.name,
       origin: adapter.origin,
+      adapterVersion: adapter.version,
       phase: 'idle',
       attempt: 0,
       error: null,
@@ -129,29 +132,44 @@ function overallStatus(
 function reducer(state: ScannerState, action: Action): ScannerState {
   switch (action.type) {
     case 'hydrate': {
-      if (state.status === 'running' || action.checkpoints.length === 0) return state
+      const restoredState = action.replace ? {
+        ...state,
+        status: 'idle' as const,
+        trigger: null,
+        startedAt: null,
+        finishedAt: null,
+        activeIds: [],
+        sources: state.sources.map((source) => ({
+          ...source, phase: 'idle' as const, attempt: 0, error: null,
+          lastSuccessAt: null, lastAttemptAt: null, campaigns: [],
+        })),
+      } : state
+      if (action.checkpoints.length === 0) return restoredState
       const byId = new Map(action.checkpoints.map((cp) => [cp.sourceId, cp]))
       let restoredCount = 0
-      const sources = state.sources.map((source) => {
-        if (source.lastSuccessAt !== null) return source
+      const sources = restoredState.sources.map((source) => {
         const cp = byId.get(source.id)
-        if (!cp || cp.campaigns.length === 0) return source
+        if (!cp || !cp.lastSuccessAt || !Number.isFinite(Date.parse(cp.lastSuccessAt))) return source
+        if (!cp.adapterVersion && cp.campaigns.length === 0) return source
+        if (cp.adapterVersion && cp.adapterVersion !== source.adapterVersion) return source
+        if (cp.campaigns.some((campaign) => campaign.adapterVersion !== source.adapterVersion)) return source
+        if (source.lastSuccessAt && Date.parse(source.lastSuccessAt) >= Date.parse(cp.lastSuccessAt)) return source
         restoredCount += 1
         return {
           ...source,
-          phase: 'done' as const,
+          phase: IN_FLIGHT.has(source.phase) ? source.phase : 'done' as const,
           lastSuccessAt: cp.lastSuccessAt,
           lastAttemptAt: cp.updatedAt,
           campaigns: cp.campaigns,
         }
       })
-      if (restoredCount === 0) return state
+      if (restoredCount === 0) return restoredState
       const latest = latestIso(sources.map((s) => s.lastSuccessAt))
       return {
-        ...state,
+        ...restoredState,
         sources,
-        status: state.status === 'idle' ? 'done' : state.status,
-        finishedAt: state.finishedAt ?? latest,
+        status: restoredState.status === 'idle' ? 'done' : restoredState.status,
+        finishedAt: restoredState.finishedAt ?? latest,
       }
     }
     case 'start':
@@ -215,11 +233,12 @@ export interface Scanner {
   staleSourceIds: ReadonlySet<string>
   lastSuccessAt: string | null
   isRunning: boolean
+  isReady: boolean
   hasData: boolean
   start: (trigger?: ScanTrigger) => boolean
   retrySource: (sourceId: string) => boolean
   cancel: () => void
-  hydrateCheckpoints: (checkpoints: readonly StoredSourceCheckpoint[]) => void
+  hydrateCheckpoints: (checkpoints: readonly StoredSourceCheckpoint[], replace?: boolean) => void
 }
 
 export function useScanner(
@@ -227,10 +246,12 @@ export function useScanner(
   enabledSourceIds?: ReadonlySet<string>,
   options: ScanOptions = DEFAULT_SCAN_OPTIONS,
   ttlMs: number = SCAN_TTL_MS,
+  ready = true,
 ): Scanner {
   const [state, dispatch] = useReducer(reducer, adapters, initState)
   const controllerRef = useRef<AbortController | null>(null)
   const runIdRef = useRef(0)
+  const automaticSelectionRef = useRef<string | null>(null)
 
   const enabledAdapters = useMemo(
     () =>
@@ -239,6 +260,8 @@ export function useScanner(
         : adapters,
     [adapters, enabledSourceIds],
   )
+
+  const selectionKey = enabledAdapters.map((adapter) => adapter.id).sort().join('|')
 
   const visibleSources = useMemo(
     () =>
@@ -250,7 +273,7 @@ export function useScanner(
 
   const execute = useCallback(
     (targets: readonly SourceAdapter[], trigger: ScanTrigger): boolean => {
-      if (controllerRef.current !== null || targets.length === 0) return false
+      if (!ready || controllerRef.current !== null || targets.length === 0) return false
       const controller = new AbortController()
       controllerRef.current = controller
       runIdRef.current += 1
@@ -283,12 +306,16 @@ export function useScanner(
         })
       return true
     },
-    [options],
+    [options, ready],
   )
 
   const start = useCallback(
-    (trigger: ScanTrigger = 'manual') => execute(enabledAdapters, trigger),
-    [enabledAdapters, execute],
+    (trigger: ScanTrigger = 'manual') => {
+      const started = execute(enabledAdapters, trigger)
+      if (started) automaticSelectionRef.current = selectionKey
+      return started
+    },
+    [enabledAdapters, execute, selectionKey],
   )
 
   const retrySource = useCallback(
@@ -303,20 +330,21 @@ export function useScanner(
     controllerRef.current?.abort(new DOMException('Scan dibatalkan pengguna.', 'AbortError'))
   }, [])
 
-  const hydrateCheckpoints = useCallback((checkpoints: readonly StoredSourceCheckpoint[]) => {
-    dispatch({ type: 'hydrate', checkpoints })
+  const hydrateCheckpoints = useCallback((checkpoints: readonly StoredSourceCheckpoint[], replace = false) => {
+    dispatch({ type: 'hydrate', checkpoints, replace })
   }, [])
 
-  // Scan otomatis saat dashboard dibuka tanpa data.
-  const initialStartedRef = useRef(false)
+  // Tunggu storage, lalu perbarui hanya sumber yang belum memiliki cache segar.
   useEffect(() => {
-    if (initialStartedRef.current) return
+    if (!ready || state.status === 'running' || automaticSelectionRef.current === selectionKey) return
     const timer = window.setTimeout(() => {
-      initialStartedRef.current = true
-      start('open')
+      const targets = sourcesNeedingRefresh(enabledAdapters, state.sources, ttlMs)
+      if (targets.length === 0 || execute(targets, 'open')) {
+        automaticSelectionRef.current = selectionKey
+      }
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [start])
+  }, [ready, state.status, state.sources, selectionKey, enabledAdapters, ttlMs, execute])
 
   useEffect(() => () => controllerRef.current?.abort(), [])
 
@@ -326,20 +354,20 @@ export function useScanner(
   )
 
   // Pembaruan saat tab aktif kembali, hanya jika data melewati TTL.
-  const freshnessRef = useRef<string | null>(null)
+  const sourcesRef = useRef(state.sources)
   useEffect(() => {
-    freshnessRef.current = lastSuccessAt ?? state.finishedAt
-  }, [lastSuccessAt, state.finishedAt])
+    sourcesRef.current = state.sources
+  }, [state.sources])
 
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState !== 'visible') return
-      const reference = freshnessRef.current
-      if (reference !== null && Date.now() - Date.parse(reference) > ttlMs) start('visible')
+      if (!ready || document.visibilityState !== 'visible') return
+      const targets = sourcesNeedingRefresh(enabledAdapters, sourcesRef.current, ttlMs)
+      if (targets.length > 0) execute(targets, 'visible')
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [start, ttlMs])
+  }, [ready, enabledAdapters, execute, ttlMs])
 
   const campaigns = useMemo(
     () => mergeCampaigns(visibleSources.flatMap((source) => source.campaigns)),
@@ -361,13 +389,25 @@ export function useScanner(
     [visibleSources],
   )
 
+  // Ringkasan mengikuti mode yang terlihat, termasuk ketika seluruh datanya berasal dari cache.
+  const displayState = useMemo(() => ({
+    ...state,
+    status: state.status === 'running'
+      ? 'running' as const
+      : visibleSources.every((source) => source.phase === 'idle')
+        ? 'idle' as const
+        : overallStatus(visibleSources, [], visibleSources.some((source) => source.phase === 'cancelled')),
+    activeIds: state.status === 'running' ? state.activeIds : visibleSources.map((source) => source.id),
+  }), [state, visibleSources])
+
   return {
-    state,
+    state: displayState,
     visibleSources,
     campaigns,
     staleSourceIds,
     lastSuccessAt,
     isRunning: state.status === 'running',
+    isReady: ready,
     hasData: lastSuccessAt !== null && campaigns.length > 0,
     start,
     retrySource,

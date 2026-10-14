@@ -78,7 +78,7 @@ export function DashboardView({
   const { state, hasData, isRunning } = scanner
 
   let content
-  if (!hasData && (isRunning || state.status === 'idle')) {
+  if (!hasData && (isRunning || !scanner.isReady)) {
     content = <SkeletonResults tableLayout={tableLayout} />
   } else if (!hasData && state.status === 'failed') {
     content = (
@@ -96,7 +96,7 @@ export function DashboardView({
         <p>Belum ada hasil yang bisa ditampilkan. Detail error tiap sumber (termasuk bila ada pemblokiran CORS atau jaringan) ada di panel scan di atas.</p>
       </EmptyState>
     )
-  } else if (!hasData) {
+  } else if (!hasData && state.status === 'cancelled') {
     content = (
       <EmptyState
         icon="stop"
@@ -109,6 +109,21 @@ export function DashboardView({
         }
       >
         <p>Belum ada sumber yang selesai. Jalankan scan lagi untuk memuat campaign.</p>
+      </EmptyState>
+    )
+  } else if (!hasData && state.status === 'idle') {
+    content = (
+      <EmptyState
+        icon="radar"
+        title="Belum ada hasil scan"
+        actions={
+          <button type="button" className="btn btn--primary" onClick={onScan}>
+            <Icon name="radar" />
+            Cari airdrop
+          </button>
+        }
+      >
+        <p>Jalankan Cari airdrop untuk memuat campaign dari sumber yang dipilih.</p>
       </EmptyState>
     )
   } else if (rows.length === 0) {

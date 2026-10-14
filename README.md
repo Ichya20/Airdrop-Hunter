@@ -15,7 +15,7 @@
 <h3>Satu panel kerja untuk berburu airdrop dengan tenang.</h3>
 
 <p>
-Cari campaign dari sumber yang didukung, lihat statusnya untuk alamatmu, lalu siapkan klaim lewat konfirmasi wallet.<br />
+Cari kandidat protokol dari sumber yang didukung, pantau alamat publik, dan lihat preview klaim DEMO.<br />
 Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat publik</b>, dan semuanya berjalan di browser dengan penyimpanan lokal <b>IndexedDB</b>.
 </p>
 
@@ -28,11 +28,13 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
 </div>
 
 > [!IMPORTANT]
-> **Status Tahap 3 (Satu Sumber Live Tervalidasi):** Aplikasi kini memindai sumber live publik (`https://api.llama.fi/protocols`) dan arsip referensi resmi proyek (Arbitrum `$ARB` & Uniswap `$UNI` berlabel **Berakhir**) langsung dari browser dengan *rate limiter* per sumber dan pembaruan berbasis TTL 60 menit. Pengguna dapat memilih mode **Sumber Live + DEMO**, **Hanya Sumber Live**, atau **Hanya Fixture DEMO** di banner atas.
+> **Versi 0.3.1 — perapihan Tahap 3:** Aplikasi mengambil metadata protokol dari `https://api.llama.fi/protocols` dan menampilkan kandidat berlabel **LIVE**. Referensi Arbitrum `$ARB` dan Uniswap `$UNI` tersimpan dalam kode dengan label **ARSIP LOKAL**; metadata API tidak membuktikan eligibility, proof, atau keadaan kontrak klaim. Cache segar per sumber digunakan setelah penyimpanan selesai dimuat, retry menghormati pembatasan sumber, dan impor cadangan memvalidasi skema. **Tahap 4 belum dimulai; aplikasi belum mengecek eligibility resmi atau mengirim transaksi klaim.**
 
 <p align="center">
-  <img src="docs/screenshots/showcase.png" alt="Dashboard AirdropHunter di laptop (tabel campaign) dan HP (daftar kartu dengan tombol Cari airdrop)" width="100%" />
+  <img src="docs/screenshots/showcase.png" alt="Contoh antarmuka versi awal AirdropHunter di laptop dan HP" width="100%" />
 </p>
+
+Gambar showcase berasal dari versi awal. Screenshot pengujian perapihan 0.3.1 dengan data tiruan tersedia di [`docs/cek-hasil.md`](docs/cek-hasil.md).
 
 ## Fitur
 
@@ -40,7 +42,7 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
   <tr>
     <td width="33%" valign="top">
       <b>🌐 Sumber Live & Rate Limit (Tahap 3)</b><br />
-      Memindai API publik DefiLlama (CORS terbuka) tanpa proxy cloud, dilengkapi pembatasan laju per sumber, penanganan <code>Retry-After</code> HTTP 429, dan arsip kontrak resmi.
+      Mengambil metadata API DefiLlama langsung dari browser tanpa proxy cloud, dengan pembatasan per sumber, <code>Retry-After</code> HTTP 429, retry yang bisa dibatalkan, dan referensi <b>ARSIP LOKAL</b>.
     </td>
     <td width="33%" valign="top">
       <b>🦊 Koneksi MetaMask (Tahap 2)</b><br />
@@ -48,7 +50,7 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
     </td>
     <td width="33%" valign="top">
       <b>🗄️ IndexedDB & Cadangan (Tahap 2)</b><br />
-      Pengaturan, watchlist, dan hasil scan tersimpan per <code>alamat + chain ID + campaign ID + versi adapter</code>, lengkap dengan ekspor/impor JSON.
+      Pengaturan, watchlist, dan hasil scan tersimpan lokal. Cache segar per sumber, termasuk hasil kosong, mencegah fetch otomatis berulang; ekspor/impor JSON memvalidasi skema dan menerima hash transaksi publik.
     </td>
   </tr>
   <tr>
@@ -80,6 +82,7 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 | --- | --- |
 | `npm run dev` | Server pengembangan Vite |
 | `npm run typecheck` | Pemeriksaan TypeScript (`tsc -b`) |
+| `npm test` | Tes Tahap 2, Tahap 3, dan regresi perapihan |
 | `npm run lint` | Oxlint |
 | `npm run build` | Typecheck + build produksi ke `dist/` |
 | `npm run preview` | Menyajikan hasil build |
@@ -88,8 +91,11 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 
 - [x] **Tahap 1** · Dashboard DEMO: scan, filter, detail, watchlist, mode pantau, preview klaim
 - [x] **Tahap 2** · Koneksi MetaMask (EIP-6963/EIP-1193), deteksi jaringan salah, penyimpanan IndexedDB per alamat + chain ID + campaign + versi adapter, migrasi & ekspor/impor cadangan
-- [x] **Tahap 3** · Satu sumber live tervalidasi (`docs/sumber-data.md`, `liveDefiLlamaAdapter.ts`, `rateLimit.ts`) dengan pembaruan berbasis TTL dan pembandingan kontrak resmi
+- [x] **Tahap 3** · Metadata protokol live DefiLlama, kandidat belum terverifikasi, arsip referensi lokal, cache per sumber, dan retry dengan rate limit
+- [x] **Perapihan 0.3.1** · Hidrasi cache sebelum scan otomatis, invalidasi checkpoint versi adapter lama, validasi backup, dan pemisahan label LIVE/ARSIP LOKAL
 - [ ] **Tahap 4** · Eligibility dari aturan, proof, atau snapshot resmi
 - [ ] **Tahap 5** · Klaim testnet: simulasi, estimasi biaya, konfirmasi wallet, dan receipt
 
-Rinciannya ada di [`tasks.md`](.kiro/specs/airdrop-hunter-mvp/tasks.md), dengan evaluasi sumber data di [`docs/sumber-data.md`](docs/sumber-data.md), kebutuhan di [`requirements.md`](.kiro/specs/airdrop-hunter-mvp/requirements.md), rancangan di [`design.md`](.kiro/specs/airdrop-hunter-mvp/design.md), dan hasil verifikasi di [`docs/cek-hasil.md`](docs/cek-hasil.md).
+Arsip lokal memakai `status: ended` agar aksi klaim tetap nonaktif di aplikasi. Untuk UNI, `deadline: null`: tanggal peluncuran historis tidak digunakan sebagai tenggat klaim, dan status klaim aktual belum diperiksa. Timestamp arsip menunjukkan kapan referensi dimuat pada scan, bukan kapan klaim diverifikasi.
+
+Rinciannya ada di [`tasks.md`](.kiro/specs/airdrop-hunter-mvp/tasks.md), dengan perilaku sumber data di [`docs/sumber-data.md`](docs/sumber-data.md), kebutuhan di [`requirements.md`](.kiro/specs/airdrop-hunter-mvp/requirements.md), rancangan di [`design.md`](.kiro/specs/airdrop-hunter-mvp/design.md), dan hasil serta batas verifikasi di [`docs/cek-hasil.md`](docs/cek-hasil.md).

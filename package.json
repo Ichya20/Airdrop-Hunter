@@ -1,8 +1,8 @@
 {
   "name": "airdrop-hunter",
   "private": true,
-  "version": "0.3.0",
-  "description": "AirdropHunter tahap 3: dashboard airdrop dengan sumber live tervalidasi (DefiLlama + arsip resmi proyek), koneksi MetaMask Chrome extension (EIP-6963/EIP-1193), mode pantau HP, dan penyimpanan IndexedDB.",
+  "version": "0.3.1",
+  "description": "AirdropHunter tahap 3: kandidat protokol dari metadata DefiLlama, arsip referensi lokal, koneksi MetaMask Chrome, mode pantau, dan penyimpanan IndexedDB. Versi 0.3.1 merapikan cache, retry, dan backup; eligibility resmi belum tersedia.",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc -b",
+    "test": "node scripts/test.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

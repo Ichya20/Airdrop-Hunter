@@ -43,7 +43,7 @@ export function Sidebar({ route, counts }: NavigationProps) {
           <Icon name="globe" size={14} />
           Tahap 3 · Sumber Live
         </p>
-        <p>Tanpa backend. Sumber live DefiLlama &amp; arsip resmi proyek dipindai langsung dari browser dengan TTL 60 menit.</p>
+        <p>Kandidat protokol dari DefiLlama dengan cache 60 menit. Referensi Arbitrum dan Uniswap berlabel ARSIP LOKAL.</p>
         <p>Wallet: MetaMask Chrome extension di laptop. HP: mode pantau alamat publik.</p>
       </div>
     </nav>

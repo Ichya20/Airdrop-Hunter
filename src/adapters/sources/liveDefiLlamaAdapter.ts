@@ -7,7 +7,7 @@ import {
 import { SourceError, type SourceAdapter } from './types'
 
 export const LIVE_DEFILLAMA_SOURCE_ID = 'defillama-live'
-export const LIVE_DEFILLAMA_ADAPTER_VERSION = 'defillama-live-1.0.0'
+export const LIVE_DEFILLAMA_ADAPTER_VERSION = 'defillama-live-1.1.0'
 export const DEFILLAMA_PROTOCOLS_ENDPOINT = 'https://api.llama.fi/protocols'
 
 /** Pemetaan nama jaringan pada respons DefiLlama ke chainId EVM yang didukung aplikasi. */
@@ -37,11 +37,11 @@ export interface DefiLlamaProtocolItem {
 }
 
 /**
- * Daftar campaign resmi yang telah dibandingkan langsung dengan dokumentasi proyek (Task 3.3).
- * Campaign historis ditandai `status: 'ended'` dan memiliki tenggat yang sudah lewat sehingga
- * selalu menghasilkan label "Berakhir" dengan klaim dinonaktifkan.
+ * Referensi historis yang tersimpan lokal di kode, bukan hasil pemeriksaan klaim oleh API.
+ * Status `ended` menjaga arsip tetap nonaktif di aplikasi; status ini tidak menyatakan
+ * hasil pemeriksaan eligibility wallet atau keadaan kontrak saat ini.
  */
-export const VERIFIED_OFFICIAL_CAMPAIGNS: readonly {
+export const LOCAL_ARCHIVE_CAMPAIGNS: readonly {
   matchSlug: string
   matchName: string
   raw: RawCampaign
@@ -57,9 +57,9 @@ export const VERIFIED_OFFICIAL_CAMPAIGNS: readonly {
       status: 'ended',
       officialUrl: 'https://arbitrum.foundation',
       checkerUrl: 'https://docs.arbitrum.foundation/deployment-addresses',
-      sourceVerified: true,
+      sourceVerified: false,
       sourceEvidence:
-        'Terverifikasi dari dokumentasi resmi Arbitrum DAO (docs.arbitrum.foundation/deployment-addresses): kontrak TokenDistributor 0x67a24CE4321aB3aF51c2D0a4801c3E111D88C9d9 di Arbitrum One.',
+        'Arsip referensi lokal dengan tautan dokumentasi Arbitrum. API DefiLlama tidak memeriksa eligibility wallet, proof, atau keadaan kontrak klaim.',
       deadline: '2023-09-24T00:00:00.000Z',
       requirements: [
         'Interaksi historis dengan jembatan atau kontrak Arbitrum One/Nova sebelum snapshot blok 58642080 (6 Februari 2023).',
@@ -72,7 +72,7 @@ export const VERIFIED_OFFICIAL_CAMPAIGNS: readonly {
         address: '0x67a24CE4321aB3aF51c2D0a4801c3E111D88C9d9',
       },
       summary:
-        'Distribusi genesis token tata kelola $ARB di Arbitrum One. Ditampilkan sebagai arsip referensi terverifikasi (Berakhir).',
+        'Distribusi genesis token tata kelola $ARB di Arbitrum One. Arsip referensi lokal; klaim tidak tersedia di aplikasi.',
     },
   },
   {
@@ -86,13 +86,13 @@ export const VERIFIED_OFFICIAL_CAMPAIGNS: readonly {
       status: 'ended',
       officialUrl: 'https://uniswap.org',
       checkerUrl: 'https://developers.uniswap.org/docs/ecosystem/governance/technical-reference',
-      sourceVerified: true,
+      sourceVerified: false,
       sourceEvidence:
-        'Terverifikasi dari Uniswap Technical Reference: kontrak UNI MerkleDistributor 0x090D4613473dEE047c3f2706764f49E0821D256e di Ethereum Mainnet.',
-      deadline: '2020-09-17T00:00:00.000Z',
+        'Arsip referensi lokal dengan tautan dokumentasi Uniswap. API DefiLlama tidak memeriksa eligibility wallet, proof, atau keadaan kontrak klaim.',
+      deadline: null,
       requirements: [
         'Alamat pernah memanggil kontrak Uniswap v1 atau v2 sebelum snapshot 1 September 2020 pukul 00:00 UTC.',
-        'Distribusi historis selesai; ditampilkan sebagai arsip referensi resmi.',
+        'Ditampilkan sebagai arsip referensi lokal; status klaim aktual belum diperiksa dan klaim tidak tersedia di aplikasi.',
       ],
       allocation: 'Minimal 400 UNI untuk pengguna historis sebelum snapshot',
       claimMethod: 'contract',
@@ -101,7 +101,7 @@ export const VERIFIED_OFFICIAL_CAMPAIGNS: readonly {
         address: '0x090D4613473dEE047c3f2706764f49E0821D256e',
       },
       summary:
-        'Distribusi historis token tata kelola $UNI melalui MerkleDistributor di Ethereum Mainnet (Berakhir).',
+        'Distribusi historis token tata kelola $UNI melalui MerkleDistributor di Ethereum Mainnet. Arsip lokal; tenggat klaim belum diketahui aplikasi.',
     },
   },
 ]
@@ -151,7 +151,8 @@ export interface MapDefiLlamaOptions {
 
 /**
  * Konversi dan normalisasi payload JSON dari `https://api.llama.fi/protocols`
- * menjadi daftar `Campaign` berlabel `origin: 'live'`.
+ * menjadi kandidat API dan referensi lokal yang memiliki provenance terpisah.
+ * `checkedAt` arsip adalah waktu pemuatan referensi pada scan, bukan verifikasi klaim.
  */
 export function mapDefiLlamaPayloadToCampaigns(
   payload: unknown,
@@ -165,7 +166,7 @@ export function mapDefiLlamaPayloadToCampaigns(
   const minTvlUsd = options.minTvlUsd ?? 5_000_000
   const results: Campaign[] = []
 
-  // Indeks item live berdasarkan slug atau nama untuk memverifikasi silang entri resmi
+  // Indeks metadata protokol; kecocokan nama tidak memverifikasi campaign atau kontrak.
   const liveBySlug = new Map<string, DefiLlamaProtocolItem>()
   const candidates: DefiLlamaProtocolItem[] = []
 
@@ -193,19 +194,17 @@ export function mapDefiLlamaPayloadToCampaigns(
     candidates.push(item)
   }
 
-  // 1. Masukkan campaign resmi terverifikasi (termasuk arsip historis Berakhir)
-  for (const verified of VERIFIED_OFFICIAL_CAMPAIGNS) {
+  // 1. Muat referensi lokal. URL terkurasi tidak diganti dengan metadata agregator.
+  for (const archive of LOCAL_ARCHIVE_CAMPAIGNS) {
     const matchedLive =
-      liveBySlug.get(verified.matchSlug) ??
-      candidates.find((c) => c.name.toLowerCase().includes(verified.matchName.toLowerCase()))
-    const liveUrl = matchedLive ? sanitizeHttpsUrl(matchedLive.url) : null
+      liveBySlug.get(archive.matchSlug) ??
+      candidates.find((c) => c.name.toLowerCase() === archive.matchName.toLowerCase())
 
     const rawCampaign: RawCampaign = {
-      ...verified.raw,
-      officialUrl: liveUrl ?? verified.raw.officialUrl,
+      ...archive.raw,
       sourceEvidence: matchedLive
-        ? `${verified.raw.sourceEvidence} Cocok dengan metadata live DefiLlama (${matchedLive.name}).`
-        : verified.raw.sourceEvidence,
+        ? `${archive.raw.sourceEvidence} Metadata nama protokol tersedia pada respons DefiLlama.`
+        : archive.raw.sourceEvidence,
     }
 
     const normalized = normalizeCampaign(rawCampaign, {
@@ -215,11 +214,12 @@ export function mapDefiLlamaPayloadToCampaigns(
       adapterVersion: LIVE_DEFILLAMA_ADAPTER_VERSION,
     })
     if (normalized) {
+      normalized.sourceKind = 'local-archive'
       results.push(normalized)
     }
   }
 
-  // 2. Saring protokol aktif tanpa token (symbol === "-") dengan TVL tertinggi di chain EVM yang didukung.
+  // 2. Saring metadata tanpa simbol token dengan TVL tertinggi di chain EVM yang didukung.
   // Sesuai aturan produk: agregator hanya petunjuk penemuan (`status: 'opportunity'`, `sourceVerified: false`).
   const tokenlessCandidates = candidates
     .filter((item) => {
@@ -238,7 +238,7 @@ export function mapDefiLlamaPayloadToCampaigns(
 
     const categoryLabel = item.category ? `Kategori ${item.category}` : 'Protokol DeFi'
     const rawOpportunity: RawCampaign = {
-      name: `${item.name} — Eksplorasi Protokol Tanpa Token`,
+      name: `${item.name} — Kandidat Eksplorasi Protokol`,
       project: item.name,
       kind: 'points',
       chainId,
@@ -247,10 +247,10 @@ export function mapDefiLlamaPayloadToCampaigns(
       checkerUrl: null,
       // Agregator hanya petunjuk penemuan; belum ada pengumuman klaim resmi yang terverifikasi.
       sourceVerified: false,
-      sourceEvidence: `Terdeteksi tanpa simbol token (symbol: "-") di endpoint publik DefiLlama (${categoryLabel}). Periksa pengumuman resmi proyek sebelum berinteraksi.`,
+      sourceEvidence: `Metadata tanpa simbol token dari endpoint publik DefiLlama (${categoryLabel}). Ini petunjuk penemuan; belum ada campaign airdrop yang diverifikasi.`,
       deadline: null,
       requirements: [
-        'Protokol tercatat aktif tanpa token di indeks publik DefiLlama; belum ada jaminan airdrop atau jadwal distribusi.',
+        'Metadata protokol belum memuat simbol token di indeks publik DefiLlama; belum ada jaminan airdrop atau jadwal distribusi.',
         'Periksa dokumentasi dan pengumuman resmi proyek melalui situs resmi sebelum menghubungkan wallet.',
       ],
       allocation: null,
@@ -259,7 +259,7 @@ export function mapDefiLlamaPayloadToCampaigns(
       summary:
         item.description && item.description.trim() !== ''
           ? item.description.trim()
-          : `${item.name} adalah protokol di jaringan EVM yang saat ini tercatat belum meluncurkan token di indeks DefiLlama.`,
+          : `${item.name} adalah protokol di jaringan EVM yang metadata DefiLlama-nya belum memuat simbol token.`,
     }
 
     const normalized = normalizeCampaign(rawOpportunity, {
@@ -269,6 +269,7 @@ export function mapDefiLlamaPayloadToCampaigns(
       adapterVersion: LIVE_DEFILLAMA_ADAPTER_VERSION,
     })
     if (normalized) {
+      normalized.sourceKind = 'api'
       results.push(normalized)
     }
   }
@@ -297,10 +298,13 @@ export function createLiveDefiLlamaAdapter(
 
   return {
     id: LIVE_DEFILLAMA_SOURCE_ID,
-    name: 'DefiLlama Live & Arsip Resmi',
+    name: 'DefiLlama Live & Arsip Lokal',
     origin: 'live',
     version: LIVE_DEFILLAMA_ADAPTER_VERSION,
-    description: 'Indeks protokol publik DefiLlama (CORS terbuka) + verifikasi kontrak resmi Arbitrum & Uniswap',
+    description: 'Metadata protokol publik DefiLlama + arsip referensi lokal Arbitrum & Uniswap; belum memeriksa eligibility atau kontrak klaim.',
+    getRetryDelayMs(manualRetry) {
+      return rateLimiter.getRetryDelayMs(LIVE_DEFILLAMA_SOURCE_ID, Date.now(), manualRetry)
+    },
     async fetchCampaigns({ signal, manualRetry }): Promise<Campaign[]> {
       const now = Date.now()
       rateLimiter.acquire(LIVE_DEFILLAMA_SOURCE_ID, now, manualRetry)
@@ -354,6 +358,7 @@ export function createLiveDefiLlamaAdapter(
         throw new SourceError(
           'http',
           `Batas permintaan sumber live tercapai (HTTP 429). Tunggu sekitar ${waitSec} detik lalu gunakan Coba lagi.`,
+          waitMs,
         )
       }
 

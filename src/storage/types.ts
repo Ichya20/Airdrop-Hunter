@@ -40,6 +40,8 @@ export interface StoredScanRecord {
 
 export interface StoredSourceCheckpoint {
   sourceId: string
+  /** Optional for older backups; current scanners use this to invalidate obsolete data. */
+  adapterVersion?: string
   lastSuccessAt: string | null
   campaigns: Campaign[]
   updatedAt: string

@@ -289,7 +289,7 @@ function DetailContent({
             {campaign.name}
           </h2>
           <div className="detail__badges">
-            <OriginBadge origin={campaign.origin} />
+            <OriginBadge origin={campaign.origin} sourceKind={campaign.sourceKind} />
             <NetworkTag network={network} />
             {row.stale ? <span className="tag tag--warning">Data lama</span> : null}
           </div>
@@ -323,8 +323,9 @@ function DetailContent({
                 <p className="notice notice--info">
                   <Icon name="globe" size={16} />
                   <span>
-                    Data sumber LIVE ({campaign.foundIn.map((id) => sourceNames.get(id) ?? id).join(', ')}). Selalu
-                    verifikasi domain resmi sebelum menandatangani transaksi.
+                    {campaign.sourceKind === 'local-archive'
+                      ? 'Arsip referensi lokal. Label Berakhir berarti entri diarsipkan dalam aplikasi dan klaim dinonaktifkan. Status kontrak serta kelayakan wallet belum diperiksa secara langsung.'
+                      : `Metadata LIVE dari ${campaign.foundIn.map((id) => sourceNames.get(id) ?? id).join(', ')}. Belum menjadi bukti eligibility atau hak klaim wallet.`}
                   </span>
                 </p>
               )}
@@ -415,8 +416,8 @@ function DetailContent({
                   </dd>
                 </div>
                 <div>
-                  <dt>Ditemukan di</dt>
-                  <dd>{campaign.foundIn.map((id) => sourceNames.get(id) ?? id).join(', ')}</dd>
+                  <dt>Asal informasi</dt>
+                  <dd>{campaign.sourceKind === 'local-archive' ? 'Katalog arsip lokal' : campaign.foundIn.map((id) => sourceNames.get(id) ?? id).join(', ')}</dd>
                 </div>
                 <div>
                   <dt>Jaringan</dt>
@@ -438,7 +439,7 @@ function DetailContent({
                   </dd>
                 </div>
                 <div>
-                  <dt>Waktu cek sumber</dt>
+                  <dt>{campaign.sourceKind === 'local-archive' ? 'Waktu arsip dimuat' : 'Waktu cek sumber'}</dt>
                   <dd>
                     <time dateTime={campaign.checkedAt}>{formatDateTime(campaign.checkedAt)}</time> · adapter{' '}
                     <span className="mono">{campaign.adapterVersion}</span>

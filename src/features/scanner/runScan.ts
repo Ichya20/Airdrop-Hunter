@@ -140,7 +140,22 @@ async function runAdapter(
     if (error.retryable && attempt < maxAttempts) {
       onEvent({ type: 'retry_wait', sourceId: adapter.id, attempt, message: error.message })
       try {
-        await delay(options.backoffMs * 2 ** (attempt - 1), signal)
+        const adapterDelayMs = adapter.getRetryDelayMs?.(manualRetry) ?? 0
+        await delay(
+          Math.max(
+            options.backoffMs * 2 ** (attempt - 1),
+            error.retryAfterMs ?? 0,
+            Number.isFinite(adapterDelayMs) ? adapterDelayMs : 0,
+          ),
+          signal,
+        )
+        // Pembatasan bisa diperpanjang sewaktu menunggu (misalnya oleh permintaan
+        // lain). Periksa ulang sebelum memakai satu slot retry untuk fetch.
+        let remainingMs = adapter.getRetryDelayMs?.(manualRetry) ?? 0
+        while (Number.isFinite(remainingMs) && remainingMs > 0) {
+          await delay(remainingMs, signal)
+          remainingMs = adapter.getRetryDelayMs?.(manualRetry) ?? 0
+        }
       } catch {
         onEvent({ type: 'cancelled', sourceId: adapter.id })
         return

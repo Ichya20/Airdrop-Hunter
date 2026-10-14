@@ -1,9 +1,9 @@
 import type { SourceMode } from '../adapters/sources'
-import { DEMO_SCENARIOS, type DemoScenario } from '../demo/demoSources'
-import { checkAddressInput, looksLikeSecret } from '../domain/address'
+import { checkAddressInput } from '../domain/address'
 import type { Campaign, EligibilityResult, Identity, TxRecord } from '../domain/types'
 import { walletAccountKey } from '../features/wallet/identity'
-import { buildScanRecordKey, formatScanRecordKey, isRecordMatchingIdentity } from './keys'
+import { validateBackupPayload, type BackupValidationResult } from './backupValidation'
+import { buildScanRecordKey, isRecordMatchingIdentity } from './keys'
 import {
   STORAGE_DB_NAME,
   STORAGE_SCHEMA_VERSION,
@@ -21,7 +21,6 @@ const STORE_WATCHLISTS = 'watchlists'
 const STORE_SCAN_RECORDS = 'scan_records'
 const STORE_CHECKPOINTS = 'source_checkpoints'
 
-const VALID_SCENARIOS = new Set<DemoScenario>(DEMO_SCENARIOS.map((item) => item.value))
 const VALID_SOURCE_MODES = new Set<SourceMode>(['all', 'live', 'demo'])
 
 /** Validasi objek Identity agar tidak pernah memuat private key/seed phrase atau alamat cacat. */
@@ -49,171 +48,9 @@ export function sanitizeIdentity(raw: unknown): Identity | null {
   return null
 }
 
-/** Periksa apakah sebuah nilai JSON mengandung string yang menyerupai private key atau seed phrase. */
-function containsSecretDeep(value: unknown): boolean {
-  if (typeof value === 'string') {
-    return looksLikeSecret(value) !== null
-  }
-  if (Array.isArray(value)) {
-    return value.some((item) => containsSecretDeep(item))
-  }
-  if (typeof value === 'object' && value !== null) {
-    return Object.values(value).some((item) => containsSecretDeep(item))
-  }
-  return false
-}
-
-/**
- * Migrasi payload backup dari versi skema lama (v1) ke versi saat ini (v2).
- */
-export function migrateBackupPayload(raw: unknown): {
-  ok: true
-  migratedFromVersion: number
-  bundle: StorageBackupBundle
-} | {
-  ok: false
-  message: string
-} {
-  if (typeof raw !== 'object' || raw === null) {
-    return { ok: false, message: 'Format file cadangan tidak valid (bukan objek JSON).' }
-  }
-  if (containsSecretDeep(raw)) {
-    return {
-      ok: false,
-      message:
-        'File cadangan ditolak karena mengandung teks yang menyerupai private key atau seed phrase.',
-    }
-  }
-
-  const record = raw as Record<string, unknown>
-  if (record.app !== 'airdrop-hunter') {
-    return { ok: false, message: 'File JSON ini bukan cadangan resmi AirdropHunter.' }
-  }
-
-  const version = typeof record.schemaVersion === 'number' ? record.schemaVersion : 1
-  if (!Number.isInteger(version) || version < 1 || version > STORAGE_SCHEMA_VERSION) {
-    return {
-      ok: false,
-      message: `Versi skema cadangan (${String(record.schemaVersion)}) tidak didukung oleh aplikasi ini (maksimal v${STORAGE_SCHEMA_VERSION}).`,
-    }
-  }
-
-  const nowIso = new Date().toISOString()
-
-  let settings: StoredSettings | null = null
-  if (typeof record.settings === 'object' && record.settings !== null) {
-    const s = record.settings as Record<string, unknown>
-    const identity = sanitizeIdentity(s.identity) ?? { kind: 'demo' }
-    const scenario =
-      typeof s.scenario === 'string' && VALID_SCENARIOS.has(s.scenario as DemoScenario)
-        ? (s.scenario as DemoScenario)
-        : 'normal'
-    const sourceMode =
-      typeof s.sourceMode === 'string' && VALID_SOURCE_MODES.has(s.sourceMode as SourceMode)
-        ? (s.sourceMode as SourceMode)
-        : 'all'
-    const scanTtlMs =
-      typeof s.scanTtlMs === 'number' && Number.isFinite(s.scanTtlMs) && s.scanTtlMs >= 60_000
-        ? s.scanTtlMs
-        : 60 * 60_000
-    settings = {
-      id: 'app-settings',
-      schemaVersion: STORAGE_SCHEMA_VERSION,
-      identity,
-      scenario,
-      sourceMode,
-      scanTtlMs,
-      updatedAt: typeof s.updatedAt === 'string' ? s.updatedAt : nowIso,
-    }
-  }
-
-  const watchlists: StoredWatchlistRecord[] = []
-  if (Array.isArray(record.watchlists)) {
-    for (const item of record.watchlists) {
-      if (typeof item !== 'object' || item === null) continue
-      const w = item as Record<string, unknown>
-      const rawKey = typeof w.accountKey === 'string' ? w.accountKey : typeof w.identityKey === 'string' ? w.identityKey : null
-      if (!rawKey || rawKey === 'none') continue
-      const campaignIds = Array.isArray(w.campaignIds)
-        ? Array.from(new Set(w.campaignIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')))
-        : []
-      watchlists.push({
-        accountKey: rawKey,
-        campaignIds,
-        updatedAt: typeof w.updatedAt === 'string' ? w.updatedAt : nowIso,
-      })
-    }
-  }
-
-  const scanRecords: StoredScanRecord[] = []
-  if (Array.isArray(record.scanRecords)) {
-    for (const item of record.scanRecords) {
-      if (typeof item !== 'object' || item === null) continue
-      const r = item as Record<string, unknown>
-      const addressScope =
-        typeof r.addressScope === 'string'
-          ? r.addressScope
-          : typeof r.identityKey === 'string'
-            ? r.identityKey
-            : null
-      const chainId = typeof r.chainId === 'number' ? r.chainId : null
-      const campaignId = typeof r.campaignId === 'string' ? r.campaignId : null
-      const adapterVersion =
-        typeof r.adapterVersion === 'string' && r.adapterVersion.trim() !== ''
-          ? r.adapterVersion
-          : '1.0.0'
-      if (!addressScope || !chainId || !campaignId || typeof r.campaign !== 'object' || r.campaign === null) {
-        continue
-      }
-      const key = formatScanRecordKey({ addressScope, chainId, campaignId, adapterVersion })
-      scanRecords.push({
-        key,
-        addressScope,
-        chainId,
-        campaignId,
-        adapterVersion,
-        campaign: r.campaign as Campaign,
-        eligibility: (r.eligibility as EligibilityResult) ?? {
-          status: 'unknown',
-          reason: 'Dipulihkan dari cadangan lokal.',
-          rule: null,
-          source: 'Cadangan lokal',
-          checkedAt: null,
-        },
-        tx: (r.tx as TxRecord | null) ?? null,
-        savedAt: typeof r.savedAt === 'string' ? r.savedAt : nowIso,
-      })
-    }
-  }
-
-  const sourceCheckpoints: StoredSourceCheckpoint[] = []
-  if (Array.isArray(record.sourceCheckpoints)) {
-    for (const item of record.sourceCheckpoints) {
-      if (typeof item !== 'object' || item === null) continue
-      const c = item as Record<string, unknown>
-      if (typeof c.sourceId !== 'string' || !Array.isArray(c.campaigns)) continue
-      sourceCheckpoints.push({
-        sourceId: c.sourceId,
-        lastSuccessAt: typeof c.lastSuccessAt === 'string' ? c.lastSuccessAt : null,
-        campaigns: c.campaigns as Campaign[],
-        updatedAt: typeof c.updatedAt === 'string' ? c.updatedAt : nowIso,
-      })
-    }
-  }
-
-  return {
-    ok: true,
-    migratedFromVersion: version,
-    bundle: {
-      app: 'airdrop-hunter',
-      schemaVersion: STORAGE_SCHEMA_VERSION,
-      exportedAt: typeof record.exportedAt === 'string' ? record.exportedAt : nowIso,
-      settings,
-      watchlists,
-      scanRecords,
-      sourceCheckpoints,
-    },
-  }
+/** Migrate legacy metadata and validate every stored object before replacing data. */
+export function migrateBackupPayload(raw: unknown): BackupValidationResult {
+  return validateBackupPayload(raw)
 }
 
 export interface LocalStorageAdapter {

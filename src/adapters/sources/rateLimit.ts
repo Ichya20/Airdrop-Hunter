@@ -21,6 +21,8 @@ export interface SourceRateLimiter {
    * Melempar `SourceError('http', ...)` bila masih dalam masa tunggu rate limit atau `Retry-After`.
    */
   acquire(sourceId: string, now?: number, manualRetry?: boolean): void
+  /** Baca waktu tunggu tanpa mencatat permintaan baru atau melewati pembatasan. */
+  getRetryDelayMs(sourceId: string, now?: number, manualRetry?: boolean): number
   /** Catat header `Retry-After` (detik) atau penalti HTTP 429 dari server. */
   recordRetryAfter(sourceId: string, retryAfterHeader: string | null, now?: number): number
   /** Reset state limiter untuk satu atau semua sumber (berguna saat pengujian). */
@@ -37,12 +39,12 @@ export function parseRetryAfterMs(headerValue: string | null, now = Date.now(), 
   if (!headerValue || headerValue.trim() === '') return fallbackMs
   const trimmed = headerValue.trim()
   const seconds = Number(trimmed)
-  if (Number.isFinite(seconds) && seconds > 0) {
-    return Math.min(Math.ceil(seconds * 1000), 10 * 60_000)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(Math.ceil(seconds * 1000), Number.MAX_SAFE_INTEGER)
   }
   const parsedDate = Date.parse(trimmed)
   if (Number.isFinite(parsedDate) && parsedDate > now) {
-    return Math.min(parsedDate - now, 10 * 60_000)
+    return parsedDate - now
   }
   return fallbackMs
 }
@@ -61,7 +63,25 @@ export function createSourceRateLimiter(
     return existing
   }
 
+  const getRetryDelayMs = (sourceId: string, now = Date.now(), manualRetry = false): number => {
+    const state = states.get(sourceId)
+    if (!state) return 0
+    const timestamps = state.timestamps.filter((ts) => now - ts < config.windowMs)
+    let readyAt = state.blockedUntil
+    if (timestamps.length >= config.maxRequestsPerWindow) {
+      // Sesudah timestamp ini kedaluwarsa, jumlah permintaan kembali di bawah batas.
+      const releaseIndex = timestamps.length - config.maxRequestsPerWindow
+      readyAt = Math.max(readyAt, timestamps[releaseIndex] + config.windowMs)
+    }
+    const lastTs = timestamps[timestamps.length - 1]
+    if (!manualRetry && lastTs !== undefined) {
+      readyAt = Math.max(readyAt, lastTs + config.minIntervalMs)
+    }
+    return Math.max(0, readyAt - now)
+  }
+
   return {
+    getRetryDelayMs,
     acquire(sourceId: string, now = Date.now(), manualRetry = false): void {
       const state = getState(sourceId)
 
@@ -70,6 +90,7 @@ export function createSourceRateLimiter(
         throw new SourceError(
           'http',
           `Batas laju sumber aktif. Tunggu ${waitSec} detik sebelum mencoba lagi.`,
+          getRetryDelayMs(sourceId, now, manualRetry),
         )
       }
 
@@ -82,6 +103,7 @@ export function createSourceRateLimiter(
         throw new SourceError(
           'http',
           `Terlalu banyak permintaan ke sumber ini (${config.maxRequestsPerWindow}x per menit). Coba lagi dalam ${waitSec} detik.`,
+          getRetryDelayMs(sourceId, now, manualRetry),
         )
       }
 
@@ -92,6 +114,7 @@ export function createSourceRateLimiter(
         throw new SourceError(
           'http',
           `Permintaan terlalu berdekatan. Tunggu ${waitSec} detik sebelum memindai ulang sumber ini.`,
+          getRetryDelayMs(sourceId, now, manualRetry),
         )
       }
 
@@ -102,7 +125,7 @@ export function createSourceRateLimiter(
       const state = getState(sourceId)
       const waitMs = parseRetryAfterMs(retryAfterHeader, now)
       state.blockedUntil = Math.max(state.blockedUntil, now + waitMs)
-      return waitMs
+      return Math.max(0, state.blockedUntil - now)
     },
 
     reset(sourceId?: string): void {

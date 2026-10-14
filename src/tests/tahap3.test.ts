@@ -89,14 +89,14 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
     details.push(`PASS: ${name}`)
   }
 
-  await step('3.1: Pemetaan payload DefiLlama menghasilkan campaign resmi terverifikasi dan peluang tanpa token berlabel LIVE', () => {
+  await step('3.1: Pemetaan payload DefiLlama menghasilkan arsip lokal dan kandidat API dengan provenance terpisah', () => {
     const campaigns = mapDefiLlamaPayloadToCampaigns(SAMPLE_DEFILLAMA_PAYLOAD, {
       checkedAt: '2026-10-14T12:00:00.000Z',
       maxOpportunities: 5,
       minTvlUsd: 5_000_000,
     })
 
-    // 2 arsip resmi (Arbitrum & Uniswap) + 2 protokol tanpa token (HyperBridge Lend & Aether Perps); CEX diabaikan
+    // 2 arsip lokal (Arbitrum & Uniswap) + 2 kandidat API (HyperBridge Lend & Aether Perps); CEX diabaikan
     assert.equal(campaigns.length, 4)
     for (const c of campaigns) {
       assert.equal(c.origin, 'live')
@@ -104,7 +104,7 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
     }
   })
 
-  await step('3.2: Pembandingan dengan sumber resmi — Arbitrum ($ARB) dan Uniswap ($UNI) memiliki kontrak resmi dan berlabel Berakhir (ended)', () => {
+  await step('3.2: Arsip lokal Arbitrum ($ARB) dan Uniswap ($UNI) tetap nonaktif tanpa mengaku diverifikasi API', () => {
     const campaigns = mapDefiLlamaPayloadToCampaigns(SAMPLE_DEFILLAMA_PAYLOAD, {
       checkedAt: '2026-10-14T12:00:00.000Z',
     })
@@ -113,7 +113,8 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
     assert.ok(arb, 'Campaign Arbitrum harus ditemukan')
     assert.equal(arb.chainId, 42161)
     assert.equal(arb.status, 'ended')
-    assert.equal(arb.sourceVerified, true)
+    assert.equal(arb.sourceVerified, false)
+    assert.equal(arb.sourceKind, 'local-archive')
     assert.equal(arb.contract?.chainId, 42161)
     assert.equal(arb.contract?.address, '0x67a24CE4321aB3aF51c2D0a4801c3E111D88C9d9')
 
@@ -121,7 +122,9 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
     assert.ok(uni, 'Campaign Uniswap harus ditemukan')
     assert.equal(uni.chainId, 1)
     assert.equal(uni.status, 'ended')
-    assert.equal(uni.sourceVerified, true)
+    assert.equal(uni.sourceVerified, false)
+    assert.equal(uni.sourceKind, 'local-archive')
+    assert.equal(uni.deadline, null)
     assert.equal(uni.contract?.chainId, 1)
     assert.equal(uni.contract?.address, '0x090D4613473dEE047c3f2706764f49E0821D256e')
 

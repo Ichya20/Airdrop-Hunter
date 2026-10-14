@@ -1,43 +1,57 @@
-# Cek hasil — Tahap 1, Tahap 2, & Tahap 3
+# Cek hasil — perapihan Tahap 3, v0.3.1
 
-Diperiksa 14 Oktober 2026 di sandbox Linux. Tanda: ✅ diperiksa dan lulus · ⏳ belum diuji di perangkat fisik · — di luar cakupan tahap 1–3.
+Diperiksa 14 Oktober 2026 pada Windows, Node.js 24.15.0. Perubahan ini tidak menambahkan eligibility resmi (Tahap 4) atau transaksi klaim (Tahap 5).
 
-## Pemeriksaan Tahap 3 (Satu Sumber Live Tervalidasi)
-
-| Pemeriksaan | Hasil |
-| --- | --- |
-| Kompilasi seluruh 56 file TypeScript/TSX (`src/`) | ✅ Lulus tanpa error sintaks atau tipe |
-| Suite pengujian otomatis `src/tests/tahap3.test.ts` (6 skenario) + `tahap2.test.ts` (14 skenario) | ✅ 20/20 lulus |
-| Dokumentasi `docs/sumber-data.md` (evaluasi kandidat, endpoint `https://api.llama.fi/protocols`, CORS, rate limit, bukti kontrak resmi) | ✅ Lengkap |
-| R5: Adapter live `src/adapters/sources/liveDefiLlamaAdapter.ts` memetakan data live dengan label `origin: 'live'` terpisah dari `origin: 'demo'` | ✅ Lulus |
-| R5: Pembatasan laju per sumber (`src/adapters/sources/rateLimit.ts`) & penghormatan header `Retry-After` pada HTTP 429 | ✅ Lulus |
-| R5: Penanganan kegagalan CORS (`SourceError('cors')`), sumber ber-API key (`SourceError('unsupported')`), dan fallback ke checker resmi tanpa proxy cloud | ✅ Lulus |
-| R3: Pembandingan dengan sumber resmi — Arbitrum (`$ARB`, kontrak `0x67a24CE4321aB3aF51c2D0a4801c3E111D88C9d9` di chain `42161`) dan Uniswap (`$UNI`, kontrak `0x090D4613473dEE047c3f2706764f49E0821D256e` di chain `1`) ditandai `ended` (**Berakhir**) dengan klaim nonaktif | ✅ Lulus |
-| R3: Protokol tanpa token (`symbol: "-"`) dari DefiLlama dipetakan jujur sebagai `status: 'opportunity'` dan `sourceVerified: false` (**Belum terverifikasi**), bukan "Siap diklaim" | ✅ Lulus |
-
-## Pemeriksaan Tahap 2 (Wallet MetaMask & IndexedDB Lokal)
+## Pemeriksaan yang dijalankan ulang
 
 | Pemeriksaan | Hasil |
 | --- | --- |
-| R3: Turunan label (`deriveLabel`) & aksi (`resolveAction`), termasuk syarat `proof` pada transaksi `confirmed` dan tenggat lewat | ✅ Lulus |
-| R6: Konektor MetaMask EIP-6963/EIP-1193 (`eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `wallet_switchEthereumChain`, `wallet_revokePermissions`) | ✅ Lulus |
-| R6: Penanganan error RPC `4001` (ditolak pengguna → Coba lagi), `-32002` (popup menunggu), `4902` (chain belum ada), serta deteksi jaringan tidak dikenal | ✅ Lulus |
-| R6 & R8: Deteksi jaringan salah pada `ClaimPreview` & tombol pindah jaringan ke chain campaign | ✅ Lulus |
-| R7: Isolasi identitas (`demo`, `watch`, `metamask` akun A vs akun B vs jaringan berbeda) & pembersihan cache tampilan saat berganti akun/jaringan | ✅ Lulus |
-| R9: Penyimpanan `src/storage` (IndexedDB `airdrop-hunter-db` v2 + fallback memori) dengan kunci `${addressScope}::${chainId}::${campaignId}::${adapterVersion}` | ✅ Lulus |
-| R9: Invalidate otomatis saat `adapterVersion` berubah, migrasi cadangan skema v1 → v2, ekspor/impor JSON, dan penolakan file cadangan yang memuat private key/seed phrase | ✅ Lulus |
+| npm test | 43/43 skenario lulus |
+| npm run lint | Exit 0, tanpa error atau warning |
+| npm run build | TypeScript dan build produksi lulus |
+| Pengujian Chromium headless | 14/14 pemeriksaan lulus; tanpa error JavaScript halaman |
+| Lebar desktop 1280 px dan HP 390 px | Tanpa scroll horizontal setelah layout selesai |
 
-## Ringkasan Pemeriksaan Tahap 1 (Dashboard DEMO)
+Suite otomatis berisi 14 skenario Tahap 2, 6 Tahap 3, 7 validasi backup, 6 retry/limiter, 4 provenance sumber, dan 6 keputusan cache/TTL. Beberapa skenario backup menguji banyak variasi input rusak.
 
-| Perintah / Area | Hasil |
-| --- | --- |
-| `npm ci`, `npm run typecheck`, `npm run lint`, `npm run build` | ✅ exit 0 |
-| Render responsif desktop (1280×800, 1024–1440 px), tablet (820 px), HP (390×844, 320 px) | ✅ Tanpa scroll horizontal |
-| Pencarian, filter status & jaringan, urutan, Reset filter, deduplikasi campaign | ✅ Lulus |
-| Aksesibilitas dialog native (fokus awal, Tab trap, Escape, klik latar), skip link, live region, kontras ≥ 5,48:1 | ✅ Lulus |
-| Mode pantau: validasi checksum EIP-55 serta pengosongan otomatis untuk private key / seed phrase | ✅ Lulus |
+`npm test` memakai bundler Vite yang sudah menjadi dependency proyek untuk menjalankan suite TypeScript pada Node. Tidak perlu menginstal test runner baru.
 
-## Cakupan Tahap Berikutnya
+## Pemeriksaan browser
 
-- — **Tahap 4**: Adapter pemeriksaan eligibility resmi (API, snapshot/proof, atau pembacaan kontrak) dengan cek ulang saat membuka detail atau memulai klaim.
-- — **Tahap 5**: Simulasi kontrak (`simulateContract`), estimasi biaya gas, konfirmasi klaim testnet di MetaMask, dan pemantauan receipt + bukti event.
+Pengujian memakai bundle development dari entry aplikasi yang sama (`src/main.tsx`), termasuk React StrictMode, CSS aplikasi dan IndexedDB browser nyata. Fixture dibuka sebagai file lokal; API dan provider wallet memakai respons tiruan. Ini menguji aplikasi dan persistensi browser, bukan akses endpoint live, CORS hosting, atau extension MetaMask fisik.
+
+1. StrictMode menghasilkan satu fetch awal; arsip berlabel ARSIP LOKAL.
+2. Refresh memakai checkpoint IndexedDB segar tanpa fetch tambahan.
+3. Progres refresh selektif menghitung satu target aktif, bukan sumber dari cache.
+4. TTL dihitung per sumber: live usang diperbarui, DEMO segar dipertahankan.
+5. Hasil sukses kosong dipulihkan tanpa scan berulang; pesan kosong benar.
+6. Checkpoint versi adapter lama diabaikan dan sumber diperbarui.
+7. Ringkasan mengikuti mode DEMO setelah mode semua gagal sebagian.
+8. Layout desktop dan HP tanpa scroll horizontal.
+9. Sesi tersimpan disinkronkan lewat pembacaan pasif ke provider tiruan.
+10. Connect terlambat tidak mengganti pilihan mode pantau yang lebih baru.
+11. Impor backup kosong menghapus hasil lama; tidak menyimpan ulang checkpoint lama atau menyisakan skeleton loading.
+12. Bersihkan cache saat scan berjalan menampilkan pesan dan mempertahankan data.
+13. Bersihkan cache saat idle menghapus checkpoint serta hasil layar; scan manual tetap tersedia.
+14. MetaMask tersimpan tanpa extension dipulihkan sebagai alamat pantau.
+
+Screenshot [desktop](screenshots/tahap3-maintenance-desktop.png) dan [HP](screenshots/tahap3-maintenance-mobile.png) memakai data API tiruan. Test Protocol adalah fixture, bukan rekomendasi atau bukti campaign airdrop.
+
+## Batas verifikasi
+
+- Extension MetaMask fisik, popup approval nyata, CORS hosting, dan API DefiLlama live belum diuji pada sesi perapihan ini.
+- Audit aksesibilitas lengkap dengan pembaca layar dan perangkat fisik masih belum selesai.
+- Eligibility resmi, simulasi kontrak, gas, pengiriman transaksi, dan receipt belum tersedia.
+- Laporan ZIP awal mencatat pemeriksaan versi sebelumnya di Linux; itu bukan bukti pengujian ulang versi ini.
+
+## Perubahan yang diverifikasi
+
+Cache menunggu hidrasi storage dan menghitung TTL per sumber, termasuk hasil kosong. Checkpoint menyimpan versi adapter; cache lama tidak dianggap data versi baru. Retry menunggu backoff, petunjuk server, dan limiter, serta bisa dibatalkan. Arsip lokal tidak mengaku diperiksa melalui API; URL terkurasi tetap dipertahankan. Import memvalidasi schema sebelum mengganti storage dan menerima hash transaksi publik pada field yang sesuai. Reset/import/clear menjaga tampilan dan data lokal tetap konsisten.
+
+## Koreksi kesesuaian terhadap ZIP asli
+
+`requirements.md`, `tasks.md`, dan `.kiro/steering/tech.md` dipulihkan identik dengan ZIP asli. Ketentuan tidak diubah untuk menyesuaikan implementasi. Ketidaksesuaian wagmi/TanStack Query pada kode awal tetap menjadi catatan: perapihan ini tidak mengganti arsitektur wallet.
+
+Regresi screening seed phrase pada backup telah diperbaiki. Parser menolak kandidat BIP39 dengan jumlah kata standar dan kecocokan wordlist dalam 10 bahasa yang sudah tersedia melalui viem, tanpa menurunkan private key. Tes penolakan pada note, sourceEvidence, summary, requirements, proof, dan checkpoint juga memeriksa bahwa data lama tidak terhapus. Hash publik dan kalimat biasa tetap lolos. Gabungan tes tetap 43/43 dan pengujian browser diulang 14/14.
+
+Build revisi lulus, tetapi Vite memberi warning ukuran chunk JavaScript: 540,35 kB sebelum gzip (183,49 kB gzip), setelah penambahan screening multilingual. Lint tetap tanpa error/warning. Pemisahan chunk tidak diubah pada revisi ini.

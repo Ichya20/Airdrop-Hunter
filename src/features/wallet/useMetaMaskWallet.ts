@@ -45,11 +45,14 @@ export function useMetaMaskWallet({
   const { presence, provider } = useMetaMaskDiscovery()
   const [phase, setPhase] = useState<WalletConnectionPhase>('idle')
   const [error, setError] = useState<WalletErrorInfo | null>(null)
-  const [session, setSession] = useState<MetaMaskSession | null>(null)
+  const session = identity.kind === 'metamask' ? { address: identity.address, chainId: identity.chainId } : null
+  const passiveRequestRef = useRef(0)
+  const [operationIdentity, setOperationIdentity] = useState<Identity | null>(null)
 
   const identityRef = useRef(identity)
   useEffect(() => {
     identityRef.current = identity
+    passiveRequestRef.current += 1
   }, [identity])
 
   const onSessionChangeRef = useRef(onSessionChange)
@@ -57,28 +60,31 @@ export function useMetaMaskWallet({
     onSessionChangeRef.current = onSessionChange
   }, [onSessionChange])
 
-  // Sinkronkan state sesi internal jika identitas awalnya dipulihkan dari storage
+  // Verifikasi ulang saat provider atau identitas hasil hydrate/import berubah.
+  const address = identity.kind === 'metamask' ? identity.address : null
+  const chainId = identity.kind === 'metamask' ? identity.chainId : null
   useEffect(() => {
-    if (identity.kind === 'metamask') {
-      setSession({ address: identity.address, chainId: identity.chainId })
-      setPhase((prev) => (prev === 'connecting' || prev === 'switching_network' ? prev : 'connected'))
-    } else {
-      setSession(null)
-      setPhase((prev) => (prev === 'error' ? prev : 'idle'))
-    }
-  }, [identity])
-
-  // Ketika identitas dari storage adalah 'metamask' dan provider sudah ditemukan,
-  // verifikasi sesi secara pasif lewat `eth_accounts` (tanpa membuka popup).
-  const passiveCheckedRef = useRef(false)
+    if (presence !== 'not_detected' || address === null) return
+    let active = true
+    void Promise.resolve().then(() => {
+      if (active && identityRef.current.kind === 'metamask' && identityRef.current.address === address) {
+        onSessionChangeRef.current(
+          { kind: 'watch', address },
+          'MetaMask belum terdeteksi. Alamat tersimpan dipulihkan dalam mode pantau.',
+        )
+      }
+    })
+    return () => { active = false }
+  }, [presence, address])
   useEffect(() => {
-    if (!provider || passiveCheckedRef.current) return
-    if (identityRef.current.kind !== 'metamask') return
-    passiveCheckedRef.current = true
+    if (!provider || address === null || chainId === null) return
+    let active = true
+    const requestId = ++passiveRequestRef.current
     void readPassiveMetaMaskSession(provider).then((liveSession) => {
-      if (identityRef.current.kind !== 'metamask') return
+      const current = identityRef.current
+      if (!active || requestId !== passiveRequestRef.current || current.kind !== 'metamask') return
+      if (current.address !== address || current.chainId !== chainId) return
       if (!liveSession) {
-        setSession(null)
         setPhase('idle')
         onSessionChangeRef.current(
           { kind: 'none' },
@@ -86,20 +92,16 @@ export function useMetaMaskWallet({
         )
         return
       }
-      const prev = identityRef.current
-      if (
-        prev.address.toLowerCase() !== liveSession.address.toLowerCase() ||
-        prev.chainId !== liveSession.chainId
-      ) {
-        setSession(liveSession)
-        setPhase('connected')
+      setPhase((previous) => previous === 'connecting' || previous === 'switching_network' ? previous : 'connected')
+      if (current.address.toLowerCase() !== liveSession.address.toLowerCase() || current.chainId !== liveSession.chainId) {
         onSessionChangeRef.current(
           { kind: 'metamask', address: liveSession.address, chainId: liveSession.chainId },
           `Sesi MetaMask disinkronkan ke ${shortenAddress(liveSession.address)} di ${getNetwork(liveSession.chainId).name}.`,
         )
       }
     })
-  }, [provider])
+    return () => { active = false }
+  }, [provider, address, chainId])
 
   // Dengarkan event EIP-1193 `accountsChanged`, `chainChanged`, dan `disconnect`
   useEffect(() => {
@@ -107,9 +109,9 @@ export function useMetaMaskWallet({
 
     const handleAccountsChanged = (rawAccounts: unknown) => {
       if (identityRef.current.kind !== 'metamask') return
+      passiveRequestRef.current += 1
       const accounts = normalizeAccounts(rawAccounts)
       if (accounts.length === 0) {
-        setSession(null)
         setPhase('idle')
         setError(null)
         onSessionChangeRef.current(
@@ -119,16 +121,13 @@ export function useMetaMaskWallet({
         return
       }
       const nextAddress = accounts[0]
-      const currentChainId =
-        identityRef.current.kind === 'metamask' ? identityRef.current.chainId : (session?.chainId ?? 1)
+      const currentChainId = identityRef.current.chainId
       if (
         identityRef.current.kind === 'metamask' &&
         identityRef.current.address.toLowerCase() === nextAddress.toLowerCase()
       ) {
         return
       }
-      const nextSession = { address: nextAddress, chainId: currentChainId }
-      setSession(nextSession)
       setPhase('connected')
       setError(null)
       onSessionChangeRef.current(
@@ -142,9 +141,8 @@ export function useMetaMaskWallet({
       if (nextChainId === null) return
       if (identityRef.current.kind !== 'metamask') return
       if (identityRef.current.chainId === nextChainId) return
+      passiveRequestRef.current += 1
       const address = identityRef.current.address
-      const nextSession = { address, chainId: nextChainId }
-      setSession(nextSession)
       setPhase('connected')
       setError(null)
       const net = getNetwork(nextChainId)
@@ -156,7 +154,7 @@ export function useMetaMaskWallet({
 
     const handleDisconnect = () => {
       if (identityRef.current.kind !== 'metamask') return
-      setSession(null)
+      passiveRequestRef.current += 1
       setPhase('idle')
       onSessionChangeRef.current(
         { kind: 'none' },
@@ -173,7 +171,7 @@ export function useMetaMaskWallet({
       provider.removeListener?.('chainChanged', handleChainChanged)
       provider.removeListener?.('disconnect', handleDisconnect)
     }
-  }, [provider, session?.chainId])
+  }, [provider])
 
   const connect = useCallback(async (): Promise<MetaMaskSession | null> => {
     if (!provider) {
@@ -189,11 +187,13 @@ export function useMetaMaskWallet({
       return null
     }
 
+    const requestId = ++passiveRequestRef.current
+    setOperationIdentity(identityRef.current)
     setPhase('connecting')
     setError(null)
     try {
       const connected = await connectMetaMaskProvider(provider)
-      setSession(connected)
+      if (requestId !== passiveRequestRef.current) return null
       setPhase('connected')
       setError(null)
       const net = getNetwork(connected.chainId)
@@ -203,6 +203,7 @@ export function useMetaMaskWallet({
       )
       return connected
     } catch (rawError: unknown) {
+      if (requestId !== passiveRequestRef.current) return null
       const classified = classifyWalletError(rawError)
       setError(classified)
       setPhase('error')
@@ -211,10 +212,11 @@ export function useMetaMaskWallet({
   }, [provider])
 
   const disconnect = useCallback(async (): Promise<void> => {
+    const requestId = ++passiveRequestRef.current
     if (provider) {
       await revokeMetaMaskPermissions(provider)
     }
-    setSession(null)
+    if (requestId !== passiveRequestRef.current) return
     setPhase('idle')
     setError(null)
     onSessionChangeRef.current(
@@ -235,12 +237,13 @@ export function useMetaMaskWallet({
         return false
       }
       const currentAddress = identityRef.current.address
+      const requestId = ++passiveRequestRef.current
+      setOperationIdentity(identityRef.current)
       setPhase('switching_network')
       setError(null)
       try {
         const updatedChainId = await switchMetaMaskChain(provider, targetChainId)
-        const nextSession = { address: currentAddress, chainId: updatedChainId }
-        setSession(nextSession)
+        if (requestId !== passiveRequestRef.current) return false
         setPhase('connected')
         const net = getNetwork(updatedChainId)
         onSessionChangeRef.current(
@@ -249,6 +252,7 @@ export function useMetaMaskWallet({
         )
         return true
       } catch (rawError: unknown) {
+        if (requestId !== passiveRequestRef.current) return false
         const classified = classifyWalletError(rawError, targetChainId)
         setError(classified)
         setPhase('connected')
@@ -260,12 +264,14 @@ export function useMetaMaskWallet({
 
   const clearError = useCallback(() => {
     setError(null)
-    setPhase((prev) => (prev === 'error' ? (session ? 'connected' : 'idle') : prev))
-  }, [session])
+    setPhase((prev) => (prev === 'error' ? (identity.kind === 'metamask' ? 'connected' : 'idle') : prev))
+  }, [identity.kind])
 
   return {
     presence,
-    phase,
+    phase: (phase === 'connecting' || phase === 'switching_network') && operationIdentity !== identity
+      ? session ? 'connected' : 'idle'
+      : phase === 'idle' && session ? 'connected' : phase === 'connected' && !session ? 'idle' : phase,
     error,
     session,
     connect,
