@@ -81,9 +81,10 @@ export interface TxRecord {
 
 /**
  * Identitas lokal yang sedang dilihat.
- * Tahap 2 menambah `{ kind: 'metamask'; address; chainId }`.
+ * Tahap 2 menambah `{ kind: 'metamask'; address: HexAddress; chainId: number }`.
  */
 export type Identity =
   | { kind: 'none' }
   | { kind: 'demo' }
   | { kind: 'watch'; address: HexAddress }
+  | { kind: 'metamask'; address: HexAddress; chainId: number }

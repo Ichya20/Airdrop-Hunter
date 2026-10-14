@@ -83,7 +83,7 @@ export function WatchlistView({
             Watchlist
           </h1>
           <p className="view__sub">
-            Campaign yang Anda tandai untuk <strong>{name}</strong>. Tersimpan selama tab ini terbuka (tahap 1).
+            Campaign yang Anda tandai untuk <strong>{name}</strong>. Tersimpan secara terpisah di IndexedDB lokal.
           </p>
         </div>
       </div>

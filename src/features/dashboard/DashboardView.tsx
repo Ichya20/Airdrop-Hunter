@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { getNetwork, isKnownChain } from '../../domain/networks'
 import type { Identity } from '../../domain/types'
 import { ScanPanel } from '../scanner/ScanPanel'
 import type { Scanner } from '../scanner/useScanner'
@@ -31,6 +32,7 @@ interface DashboardViewProps {
   onToggleWatch: (campaignId: string) => void
   onScan: () => void
   onOpenAccount: () => void
+  onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
   announce: (message: string) => void
 }
 
@@ -46,6 +48,7 @@ export function DashboardView({
   onToggleWatch,
   onScan,
   onOpenAccount,
+  onSwitchNetwork,
   announce,
 }: DashboardViewProps) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
@@ -171,7 +174,11 @@ export function DashboardView({
         </div>
       </div>
 
-      <IdentityNotice identity={identity} onOpenAccount={onOpenAccount} />
+      <IdentityNotice
+        identity={identity}
+        onOpenAccount={onOpenAccount}
+        onSwitchNetwork={onSwitchNetwork}
+      />
 
       <ScanPanel scanner={scanner} now={now} compact={compactScan} onScan={onScan} />
 
@@ -202,7 +209,15 @@ export function DashboardView({
   )
 }
 
-function IdentityNotice({ identity, onOpenAccount }: { identity: Identity; onOpenAccount: () => void }) {
+function IdentityNotice({
+  identity,
+  onOpenAccount,
+  onSwitchNetwork,
+}: {
+  identity: Identity
+  onOpenAccount: () => void
+  onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
+}) {
   if (identity.kind === 'demo') return null
   if (identity.kind === 'none') {
     return (
@@ -219,13 +234,58 @@ function IdentityNotice({ identity, onOpenAccount }: { identity: Identity; onOpe
       </div>
     )
   }
+  if (identity.kind === 'metamask') {
+    const net = getNetwork(identity.chainId)
+    if (!isKnownChain(identity.chainId)) {
+      return (
+        <div className="notice notice--danger notice--block" role="alert">
+          <Icon name="alert" size={18} />
+          <div>
+            <p>
+              <strong>Jaringan wallet tidak didukung (chain ID {identity.chainId}).</strong> Pindahkan MetaMask ke
+              jaringan yang didukung seperti Ethereum, Base, Arbitrum, atau Sepolia.
+            </p>
+          </div>
+          <div className="button-row">
+            {onSwitchNetwork ? (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => void onSwitchNetwork(1)}
+              >
+                Pindah ke Ethereum
+              </button>
+            ) : null}
+            <button type="button" className="btn btn--ghost btn--sm" onClick={onOpenAccount}>
+              Pengaturan akun
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="notice notice--info notice--block">
+        <Icon name="wallet" size={18} />
+        <div>
+          <p>
+            <strong>MetaMask terhubung ({net.name} · chain ID {identity.chainId}).</strong> Data DEMO dipisahkan dari
+            wallet nyata sehingga kelayakan tampil “Belum diketahui” hingga adapter resmi (tahap 4). Watchlist dan hasil
+            scan alamat ini tersimpan di IndexedDB.
+          </p>
+        </div>
+        <button type="button" className="btn btn--secondary btn--sm" onClick={onOpenAccount}>
+          Kelola akun
+        </button>
+      </div>
+    )
+  }
   return (
     <div className="notice notice--watch notice--block">
       <Icon name="eye" size={18} />
       <div>
         <p>
           <strong>Mode pantau · baca saja.</strong> Data DEMO hanya punya contoh kelayakan untuk Akun DEMO, jadi
-          kelayakan alamat ini tampil “Belum diketahui”. Tidak ada koneksi wallet atau transaksi.
+          kelayakan alamat ini tampil “Belum diketahui”. Watchlist alamat ini tersimpan secara terpisah di IndexedDB.
         </p>
       </div>
       <button type="button" className="btn btn--secondary btn--sm" onClick={onOpenAccount}>

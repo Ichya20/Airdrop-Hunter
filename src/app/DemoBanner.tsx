@@ -47,8 +47,8 @@ export function DemoBanner({ scenario, compact, onScenarioChange }: DemoBannerPr
           DEMO
         </span>
         <span>
-          Semua campaign adalah <strong>fixture lokal</strong>, bukan campaign nyata. Tanpa koneksi wallet, RPC, atau
-          transaksi.
+          Sumber campaign masih memakai <strong>fixture lokal</strong> (sumber live diaktifkan di tahap 3). Koneksi
+          MetaMask dan penyimpanan lokal IndexedDB sudah aktif tanpa transaksi klaim.
         </span>
       </p>
       {compact ? (

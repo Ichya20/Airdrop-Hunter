@@ -24,9 +24,19 @@ interface CampaignDrawerProps {
   sourceNames: ReadonlyMap<string, string>
   onClose: () => void
   onToggleWatch: (campaignId: string) => void
+  onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
 }
 
-export function CampaignDrawer({ request, row, identity, now, sourceNames, onClose, onToggleWatch }: CampaignDrawerProps) {
+export function CampaignDrawer({
+  request,
+  row,
+  identity,
+  now,
+  sourceNames,
+  onClose,
+  onToggleWatch,
+  onSwitchNetwork,
+}: CampaignDrawerProps) {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const requirementsRef = useRef<HTMLHeadingElement>(null)
   const txRef = useRef<HTMLHeadingElement>(null)
@@ -61,6 +71,7 @@ export function CampaignDrawer({ request, row, identity, now, sourceNames, onClo
           claimRef={claimRef}
           onClose={onClose}
           onToggleWatch={onToggleWatch}
+          onSwitchNetwork={onSwitchNetwork}
         />
       ) : (
         <MissingContent titleRef={titleRef} onClose={onClose} />
@@ -105,6 +116,7 @@ interface DetailContentProps {
   claimRef: RefObject<HTMLHeadingElement | null>
   onClose: () => void
   onToggleWatch: (campaignId: string) => void
+  onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
 }
 
 function hostOf(url: string): string {
@@ -127,6 +139,7 @@ function DetailContent({
   claimRef,
   onClose,
   onToggleWatch,
+  onSwitchNetwork,
 }: DetailContentProps) {
   const { campaign, eligibility, tx, label, action, network } = row
   const [view, setView] = useState<DetailView>(initialView)
@@ -211,7 +224,7 @@ function DetailContent({
               setNotice(
                 identity.kind === 'demo'
                   ? 'Fixture DEMO tidak memiliki data kelayakan untuk campaign ini. Pemeriksaan resmi ditambahkan per campaign di tahap 4.'
-                  : `Pemeriksaan kelayakan untuk ${name} belum tersedia di tahap 1. Adapter eligibility resmi ditambahkan di tahap 4.`,
+                  : `Pemeriksaan kelayakan untuk ${name} belum tersedia di tahap 2. Adapter eligibility resmi ditambahkan di tahap 4.`,
               )
             }
           >
@@ -273,7 +286,13 @@ function DetailContent({
 
       <div className="dialog__body">
         {view === 'claim' ? (
-          <ClaimPreview row={row} identity={identity} now={now} headingRef={claimRef} />
+          <ClaimPreview
+            row={row}
+            identity={identity}
+            now={now}
+            headingRef={claimRef}
+            onSwitchNetwork={onSwitchNetwork}
+          />
         ) : (
           <div className="detail__sections">
             <section className="detail__summary" aria-label="Ringkasan status">
@@ -485,7 +504,7 @@ function DetailContent({
               aria-describedby="claim-blocked-reason"
               onClick={() =>
                 setNotice(
-                  'Tidak ada yang dikirim. Mode DEMO tidak membuka MetaMask dan tidak membuat transaksi. Klaim testnet nyata akan memakai simulasi, estimasi biaya, dan konfirmasi wallet (tahap 5).',
+                  'Tidak ada yang dikirim. Campaign DEMO tidak memiliki kontrak nyata. Klaim testnet dengan simulasi kontrak dan receipt diaktifkan di tahap 5.',
                 )
               }
             >
@@ -493,7 +512,7 @@ function DetailContent({
               Kirim lewat MetaMask
             </button>
             <span id="claim-blocked-reason" className="sr-only">
-              Tidak tersedia dalam mode DEMO.
+              Tidak tersedia untuk fixture DEMO.
             </span>
           </div>
         ) : (

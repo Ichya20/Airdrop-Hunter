@@ -1,14 +1,16 @@
 import type { RefObject } from 'react'
 import { getClaimAdapter } from '../../adapters/claims'
 import { Icon, type IconName } from '../../components/Icon'
+import { shortenAddress } from '../../domain/address'
 import { formatDateTime } from '../../domain/format'
+import { getNetwork } from '../../domain/networks'
 import { ELIGIBILITY_TEXT, isEnded } from '../../domain/status'
 import type { Identity } from '../../domain/types'
 import type { CampaignRow } from '../dashboard/rows'
 
 type CheckState = 'ok' | 'warn' | 'fail'
 
-interface PreClaimCheck {
+export interface PreClaimCheck {
   label: string
   state: CheckState
   text: string
@@ -26,12 +28,18 @@ const CHECK_TEXT: Record<CheckState, string> = {
   fail: 'Tidak lolos',
 }
 
-function buildChecks(row: CampaignRow, identity: Identity, now: number): PreClaimCheck[] {
+export function buildChecks(row: CampaignRow, identity: Identity, now: number): PreClaimCheck[] {
   const { campaign, eligibility, network, tx } = row
   const adapter = getClaimAdapter(campaign)
   const checks: PreClaimCheck[] = []
 
-  if (identity.kind === 'demo') {
+  if (identity.kind === 'metamask') {
+    checks.push({
+      label: 'Akun pengirim',
+      state: 'ok',
+      text: `MetaMask terhubung (${shortenAddress(identity.address)}).`,
+    })
+  } else if (identity.kind === 'demo') {
     checks.push({ label: 'Akun pengirim', state: 'warn', text: 'Akun DEMO (fixture), bukan akun MetaMask.' })
   } else if (identity.kind === 'watch') {
     checks.push({
@@ -43,11 +51,28 @@ function buildChecks(row: CampaignRow, identity: Identity, now: number): PreClai
     checks.push({ label: 'Akun pengirim', state: 'fail', text: 'Belum ada akun yang dipilih.' })
   }
 
-  checks.push({
-    label: 'Jaringan',
-    state: 'warn',
-    text: `Campaign di ${network.name} (chain ID ${network.chainId}). Jaringan wallet belum dibaca di tahap 1.`,
-  })
+  if (identity.kind === 'metamask') {
+    if (identity.chainId === network.chainId) {
+      checks.push({
+        label: 'Jaringan',
+        state: 'ok',
+        text: `Wallet berada di jaringan yang sesuai: ${network.name} (chain ID ${network.chainId}).`,
+      })
+    } else {
+      const walletNet = getNetwork(identity.chainId)
+      checks.push({
+        label: 'Jaringan',
+        state: 'fail',
+        text: `Jaringan salah: wallet di ${walletNet.name} (chain ID ${identity.chainId}), sedangkan campaign membutuhkan ${network.name} (chain ID ${network.chainId}).`,
+      })
+    }
+  } else {
+    checks.push({
+      label: 'Jaringan',
+      state: 'warn',
+      text: `Campaign di ${network.name} (chain ID ${network.chainId}). Hubungkan MetaMask untuk memeriksa kesesuaian jaringan wallet.`,
+    })
+  }
 
   if (isEnded(campaign, now)) {
     checks.push({ label: 'Tenggat', state: 'fail', text: 'Tenggat sudah lewat.' })
@@ -96,13 +121,15 @@ interface ClaimPreviewProps {
   identity: Identity
   now: number
   headingRef: RefObject<HTMLHeadingElement | null>
+  onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
 }
 
-/** Preview klaim DEMO. Tidak membuat payload transaksi dan tidak memanggil wallet. */
-export function ClaimPreview({ row, identity, now, headingRef }: ClaimPreviewProps) {
+/** Preview klaim. Tidak membuat payload transaksi untuk fixture DEMO. */
+export function ClaimPreview({ row, identity, now, headingRef, onSwitchNetwork }: ClaimPreviewProps) {
   const { campaign, network } = row
   const checks = buildChecks(row, identity, now)
   const blocking = checks.filter((check) => check.state === 'fail').length
+  const wrongNetwork = identity.kind === 'metamask' && identity.chainId !== network.chainId
 
   return (
     <div className="claim">
@@ -112,10 +139,32 @@ export function ClaimPreview({ row, identity, now, headingRef }: ClaimPreviewPro
       <p className="notice notice--demo">
         <Icon name="flask" size={16} />
         <span>
-          Mode DEMO: tidak ada permintaan ke MetaMask dan tidak ada transaksi yang dikirim. Preview ini hanya
-          memperlihatkan pemeriksaan yang wajib lolos sebelum klaim nyata.
+          Data campaign masih berasal dari fixture DEMO: tidak ada transaksi yang dikirim ke jaringan. Preview ini
+          memeriksa kesiapan akun, jaringan MetaMask, dan syarat pra-klaim.
         </span>
       </p>
+
+      {wrongNetwork && onSwitchNetwork ? (
+        <div className="notice notice--danger" role="alert">
+          <Icon name="alert" size={16} />
+          <div>
+            <p>
+              <strong>Jaringan MetaMask tidak cocok.</strong> Pindahkan jaringan wallet ke {network.name} (chain ID{' '}
+              {network.chainId}) sebelum melanjutkan.
+            </p>
+            <div className="button-row" style={{ marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn--secondary btn--xs"
+                onClick={() => void onSwitchNetwork(network.chainId)}
+              >
+                <Icon name="globe" size={14} />
+                Pindahkan MetaMask ke {network.name}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <section aria-labelledby="claim-checks-title">
         <h4 id="claim-checks-title" className="section-title">
@@ -165,7 +214,7 @@ export function ClaimPreview({ row, identity, now, headingRef }: ClaimPreviewPro
           <div>
             <dt>Penerima</dt>
             <dd>
-              {identity.kind === 'watch' ? (
+              {identity.kind === 'watch' || identity.kind === 'metamask' ? (
                 <span className="mono">{identity.address}</span>
               ) : identity.kind === 'demo' ? (
                 'Akun DEMO (bukan alamat nyata)'
@@ -180,7 +229,7 @@ export function ClaimPreview({ row, identity, now, headingRef }: ClaimPreviewPro
           </div>
           <div>
             <dt>Estimasi biaya</dt>
-            <dd>Tidak tersedia: tahap 1 tidak memakai RPC atau simulasi.</dd>
+            <dd>Tidak tersedia: simulasi kontrak dan estimasi gas diaktifkan di tahap 5.</dd>
           </div>
           <div>
             <dt>Izin token</dt>

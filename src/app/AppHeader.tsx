@@ -2,7 +2,12 @@ import { Icon } from '../components/Icon'
 import { LogoMark } from '../components/Logo'
 import type { Identity } from '../domain/types'
 import type { Scanner } from '../features/scanner/useScanner'
-import { identityModeText, identityName, walletNetworkText } from '../features/wallet/identity'
+import {
+  identityModeText,
+  identityName,
+  isUnsupportedWalletChain,
+  walletNetworkText,
+} from '../features/wallet/identity'
 
 interface AppHeaderProps {
   identity: Identity
@@ -32,6 +37,8 @@ export function ScanButton({ scanner, onScan, className }: { scanner: Scanner; o
 }
 
 export function AppHeader({ identity, scanner, isDesktop, onScan, onOpenAccount }: AppHeaderProps) {
+  const unsupportedNet = isUnsupportedWalletChain(identity)
+
   return (
     <header className="appbar">
       <a className="brand" href="#/">
@@ -42,8 +49,12 @@ export function AppHeader({ identity, scanner, isDesktop, onScan, onOpenAccount 
 
       <div className="appbar__actions">
         {isDesktop ? (
-          <div className="netchip" role="group" aria-label="Jaringan wallet">
-            <Icon name="globe" size={16} />
+          <div
+            className={`netchip${unsupportedNet ? ' netchip--warn' : ''}`}
+            role="group"
+            aria-label="Jaringan wallet"
+          >
+            <Icon name={unsupportedNet ? 'alert' : 'globe'} size={16} />
             <span className="netchip__label">Jaringan</span>
             <span className="netchip__value">{walletNetworkText(identity)}</span>
           </div>

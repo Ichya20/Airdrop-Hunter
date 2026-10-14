@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { SourceAdapter } from '../../adapters/sources/types'
 import { mergeCampaigns } from '../../domain/normalize'
 import type { Campaign } from '../../domain/types'
+import type { StoredSourceCheckpoint } from '../../storage/types'
 import { DEFAULT_SCAN_OPTIONS, runScan, type ScanEvent, type ScanOptions } from './runScan'
 
 export type SourcePhase =
@@ -43,8 +44,9 @@ type Action =
   | { type: 'start'; runId: number; trigger: ScanTrigger; sourceIds: string[]; at: string }
   | { type: 'event'; runId: number; event: ScanEvent }
   | { type: 'finish'; runId: number; cancelled: boolean; at: string }
+  | { type: 'hydrate'; checkpoints: readonly StoredSourceCheckpoint[] }
 
-/** TTL awal sebelum data dianggap usang (keputusan produk, dapat diubah di Tahap 2). */
+/** TTL awal sebelum data dianggap usang (60 menit). */
 export const SCAN_TTL_MS = 60 * 60_000
 
 const IN_FLIGHT: ReadonlySet<SourcePhase> = new Set(['queued', 'running', 'retry_wait'])
@@ -118,6 +120,32 @@ function overallStatus(sources: readonly SourceView[], cancelled: boolean): Scan
 
 function reducer(state: ScannerState, action: Action): ScannerState {
   switch (action.type) {
+    case 'hydrate': {
+      if (state.status === 'running' || action.checkpoints.length === 0) return state
+      const byId = new Map(action.checkpoints.map((cp) => [cp.sourceId, cp]))
+      let restoredCount = 0
+      const sources = state.sources.map((source) => {
+        if (source.lastSuccessAt !== null) return source
+        const cp = byId.get(source.id)
+        if (!cp || cp.campaigns.length === 0) return source
+        restoredCount += 1
+        return {
+          ...source,
+          phase: 'done' as const,
+          lastSuccessAt: cp.lastSuccessAt,
+          lastAttemptAt: cp.updatedAt,
+          campaigns: cp.campaigns,
+        }
+      })
+      if (restoredCount === 0) return state
+      const latest = latestIso(sources.map((s) => s.lastSuccessAt))
+      return {
+        ...state,
+        sources,
+        status: state.status === 'idle' ? 'done' : state.status,
+        finishedAt: state.finishedAt ?? latest,
+      }
+    }
     case 'start':
       return {
         ...state,
@@ -182,6 +210,7 @@ export interface Scanner {
   start: (trigger?: ScanTrigger) => boolean
   retrySource: (sourceId: string) => boolean
   cancel: () => void
+  hydrateCheckpoints: (checkpoints: readonly StoredSourceCheckpoint[]) => void
 }
 
 export function useScanner(
@@ -249,6 +278,10 @@ export function useScanner(
     controllerRef.current?.abort(new DOMException('Scan dibatalkan pengguna.', 'AbortError'))
   }, [])
 
+  const hydrateCheckpoints = useCallback((checkpoints: readonly StoredSourceCheckpoint[]) => {
+    dispatch({ type: 'hydrate', checkpoints })
+  }, [])
+
   // Scan otomatis saat dashboard dibuka tanpa data. Timer dibersihkan saat StrictMode
   // melakukan mount ulang sehingga scan tidak berjalan dua kali.
   useEffect(() => {
@@ -310,5 +343,6 @@ export function useScanner(
     start,
     retrySource,
     cancel,
+    hydrateCheckpoints,
   }
 }

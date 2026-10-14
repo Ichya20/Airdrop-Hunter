@@ -14,12 +14,12 @@
 - [x] 1.10 README, `docs/cek-hasil.md`, `.kiro/steering`.
 - [x] 1.11 Typecheck, lint, build; render dan interaksi desktop/HP; kontras; catat yang belum diuji di `docs/cek-hasil.md`.
 
-## Tahap 2 — Wallet dan data lokal
+## Tahap 2 — Wallet dan data lokal (selesai)
 
-- [ ] 2.1 Pasang wagmi + viem + TanStack Query sesuai dokumentasi resmi terbaru; konektor MetaMask saja, tanpa WalletConnect/SDK mobile. _R6_
-- [ ] 2.2 Connect, disconnect, penolakan → coba lagi, jaringan salah, pergantian akun/jaringan membersihkan cache tampilan. _R6, R7_
-- [ ] 2.3 `src/storage`: IndexedDB untuk pengaturan, watchlist, hasil scan per alamat + chain ID + campaign + versi adapter; migrasi dan backup/import. _R9_
-- [ ] 2.4 Tes bermakna: turunan label, pemisahan wallet, persistensi setelah refresh. _R3, R7, R9_
+- [x] 2.1 Konektor MetaMask Chrome extension resmi via EIP-6963 + EIP-1193 + `viem` (`src/features/wallet/metamask.ts`, `useMetaMaskWallet.ts`), tanpa WalletConnect/SDK mobile. _R6_
+- [x] 2.2 Connect, disconnect, penolakan → coba lagi, jaringan salah (`wallet_switchEthereumChain`), pergantian akun/jaringan (`accountsChanged`, `chainChanged`) membersihkan cache tampilan. _R6, R7_
+- [x] 2.3 `src/storage`: IndexedDB untuk pengaturan, watchlist, hasil scan per alamat + chain ID + campaign + versi adapter; migrasi v1→v2 dan backup/import JSON. _R9_
+- [x] 2.4 Tes bermakna (`src/tests/tahap2.test.ts`): turunan label, pemisahan wallet, persistensi setelah refresh, dan migrasi/impor cadangan. _R3, R7, R9_
 
 ## Tahap 3 — Satu sumber live
 

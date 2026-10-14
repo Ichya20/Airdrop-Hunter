@@ -6,7 +6,7 @@ export interface NetworkInfo {
   color: string
 }
 
-const KNOWN_NETWORKS: readonly NetworkInfo[] = [
+export const KNOWN_NETWORKS: readonly NetworkInfo[] = [
   { chainId: 1, name: 'Ethereum', testnet: false, color: '#8EA2FF' },
   { chainId: 10, name: 'OP Mainnet', testnet: false, color: '#FF7A7A' },
   { chainId: 137, name: 'Polygon PoS', testnet: false, color: '#B48CFF' },

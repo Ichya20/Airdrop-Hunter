@@ -553,3 +553,18 @@
     padding: var(--space-3);
   }
 }
+
+/* Tambahan Tahap 2: indikator MetaMask terhubung & peringatan jaringan tidak didukung */
+.account-btn--metamask > .icon:first-child {
+  color: var(--accent);
+}
+
+.netchip--warn {
+  border-color: var(--amber-line);
+  background: var(--amber-soft);
+}
+
+.netchip--warn .icon,
+.netchip--warn .netchip__value {
+  color: var(--amber);
+}

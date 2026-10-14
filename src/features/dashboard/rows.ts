@@ -14,6 +14,7 @@ import type {
   Identity,
   TxRecord,
 } from '../../domain/types'
+import type { StoredScanRecord } from '../../storage/types'
 import { resolveTransaction } from '../claims/resolveTransaction'
 
 /** Satu baris dashboard: campaign + status terpisah untuk identitas aktif + label turunan. */
@@ -35,10 +36,12 @@ export function buildRows(
   now: number,
   staleSourceIds: ReadonlySet<string>,
   watched: ReadonlySet<string>,
+  cachedRecords?: ReadonlyMap<string, StoredScanRecord>,
 ): CampaignRow[] {
   return campaigns.map((campaign) => {
-    const eligibility = resolveEligibility(campaign, identity)
-    const tx = resolveTransaction(campaign, identity)
+    const cached = cachedRecords?.get(campaign.id) ?? null
+    const eligibility = resolveEligibility(campaign, identity, cached)
+    const tx = resolveTransaction(campaign, identity, cached)
     const label = deriveLabel(campaign, eligibility, tx, now)
     return {
       campaign,

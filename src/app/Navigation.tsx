@@ -10,7 +10,6 @@ interface NavItem {
   icon: IconName
 }
 
-// Hanya fitur yang tersedia di Tahap 1. Riwayat dan Pengaturan menyusul setelah penyimpanan lokal.
 const NAV_ITEMS: readonly NavItem[] = [
   { route: 'dashboard', href: '#/', text: 'Dashboard', icon: 'grid' },
   { route: 'watchlist', href: '#/watchlist', text: 'Watchlist', icon: 'star' },
@@ -42,9 +41,9 @@ export function Sidebar({ route, counts }: NavigationProps) {
       <div className="sidebar__note">
         <p className="sidebar__note-title">
           <Icon name="flask" size={14} />
-          Tahap 1 · DEMO
+          Tahap 2 · Wallet &amp; IndexedDB
         </p>
-        <p>Tanpa backend. Scan berjalan hanya saat halaman ini terbuka; data tersimpan di tab ini.</p>
+        <p>Tanpa backend. Pengaturan, watchlist, dan hasil scan disimpan di IndexedDB per alamat + chain ID.</p>
         <p>Wallet: MetaMask Chrome extension di laptop. HP: mode pantau alamat publik.</p>
       </div>
     </nav>

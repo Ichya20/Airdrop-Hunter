@@ -1804,3 +1804,10 @@
     flex: 1 1 auto;
   }
 }
+
+/* Tambahan Tahap 2: variasi notice error/danger */
+.notice--danger {
+  --n-color: var(--danger);
+  --n-soft: var(--danger-soft);
+  --n-line: var(--danger-line);
+}
