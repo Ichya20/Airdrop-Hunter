@@ -29,8 +29,8 @@
 
 ## Tahap 4 — Eligibility
 
-- [ ] 4.1 Adapter eligibility resmi (API, proof/snapshot, atau pembacaan kontrak); gagal/timeout tetap `unknown`; simpan alasan, sumber, waktu, aturan. _R3_
-- [ ] 4.2 Status usang + cek ulang saat membuka detail atau memulai klaim; uji wallet berbeda, sumber gagal, campaign berakhir, sudah diklaim. _R3, R4_
+- [x] 4.1 Adapter eligibility resmi (API, proof/snapshot, atau pembacaan kontrak); gagal/timeout tetap `unknown`; simpan alasan, sumber, waktu, aturan. _R3_
+- [x] 4.2 Status usang + cek ulang saat membuka detail atau memulai klaim; uji wallet berbeda, sumber gagal, campaign berakhir, sudah diklaim. _R3, R4_
 
 ## Tahap 5 — Klaim testnet
 

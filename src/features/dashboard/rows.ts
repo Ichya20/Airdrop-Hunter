@@ -1,4 +1,4 @@
-import { resolveEligibility } from '../../adapters/eligibility'
+import { isEligibilityFresh, resolveEligibility } from '../../adapters/eligibility'
 import { getNetwork, type NetworkInfo } from '../../domain/networks'
 import {
   deriveLabel,
@@ -15,6 +15,7 @@ import type {
   TxRecord,
 } from '../../domain/types'
 import type { StoredScanRecord } from '../../storage/types'
+import { isRecordMatchingIdentity } from '../../storage/keys'
 import { resolveTransaction } from '../claims/resolveTransaction'
 
 /** Satu baris dashboard: campaign + status terpisah untuk identitas aktif + label turunan. */
@@ -27,6 +28,8 @@ export interface CampaignRow {
   action: PrimaryAction
   /** Semua sumber campaign ini gagal pada percobaan terakhir; data berasal dari checkpoint. */
   stale: boolean
+  /** Hasil kelayakan lama tidak dipakai sebagai bukti siap klaim. */
+  eligibilityStale: boolean
   watched: boolean
 }
 
@@ -40,7 +43,7 @@ export function buildRows(
 ): CampaignRow[] {
   return campaigns.map((campaign) => {
     const cached = cachedRecords?.get(campaign.id) ?? null
-    const eligibility = resolveEligibility(campaign, identity, cached)
+    const eligibility = resolveEligibility(campaign, identity, cached, now)
     const tx = resolveTransaction(campaign, identity, cached)
     const label = deriveLabel(campaign, eligibility, tx, now)
     return {
@@ -51,6 +54,9 @@ export function buildRows(
       label,
       action: resolveAction(label, campaign, tx),
       stale: campaign.foundIn.every((sourceId) => staleSourceIds.has(sourceId)),
+      eligibilityStale: campaign.origin !== 'demo' && cached !== null &&
+        isRecordMatchingIdentity(cached, identity, campaign) && cached.eligibility.checkedAt !== null &&
+        !isEligibilityFresh(campaign, cached.eligibility, now),
       watched: watched.has(campaign.id),
     }
   })
@@ -59,6 +65,7 @@ export function buildRows(
 /** Ringkasan status terpisah di bawah label: eligibility + transaksi bila ada. */
 export function statusSubtext(row: CampaignRow): string {
   const parts = [`Eligibility: ${ELIGIBILITY_TEXT[row.eligibility.status].toLowerCase()}`]
+  if (row.eligibilityStale) parts.push('Hasil eligibility usang')
   if (row.tx !== null) parts.push(`Tx: ${TX_TEXT[row.tx.status].toLowerCase()}`)
   return parts.join(' · ')
 }

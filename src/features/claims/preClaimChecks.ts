@@ -1,4 +1,5 @@
 import { getClaimAdapter } from '../../adapters/claims'
+import { isEligibilityFresh } from '../../adapters/eligibility'
 import { shortenAddress } from '../../domain/address'
 import { formatDateTime } from '../../domain/format'
 import { getNetwork } from '../../domain/networks'
@@ -15,7 +16,9 @@ export interface PreClaimCheck {
 }
 
 export function buildChecks(row: CampaignRow, identity: Identity, now: number): PreClaimCheck[] {
-  const { campaign, eligibility, network, tx } = row
+  const { campaign, network, tx } = row
+  const eligibility = row.eligibility
+  const eligibilityCurrent = campaign.origin === 'demo' || isEligibilityFresh(campaign, eligibility, now)
   const adapter = getClaimAdapter(campaign)
   const checks: PreClaimCheck[] = []
 
@@ -70,8 +73,10 @@ export function buildChecks(row: CampaignRow, identity: Identity, now: number): 
 
   checks.push({
     label: 'Eligibility',
-    state: eligibility.status === 'eligible' ? 'ok' : 'fail',
-    text: `${ELIGIBILITY_TEXT[eligibility.status]} menurut ${eligibility.source}.`,
+    state: eligibilityCurrent && eligibility.status === 'eligible' ? 'ok' : 'fail',
+    text: eligibilityCurrent
+      ? `${ELIGIBILITY_TEXT[eligibility.status]} menurut ${eligibility.source}. ${eligibility.reason}`
+      : 'Eligibility belum diverifikasi atau hasil sudah usang. Periksa ulang melalui sumber resmi.',
   })
 
   checks.push({

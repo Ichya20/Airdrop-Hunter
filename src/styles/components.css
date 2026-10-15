@@ -218,6 +218,18 @@
   border-color: var(--danger);
 }
 
+.eligibility-check {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.eligibility-proof {
+  min-height: 9rem;
+  padding: var(--space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .select {
   appearance: none;
   padding-right: 2.25rem;

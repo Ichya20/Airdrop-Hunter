@@ -3,7 +3,7 @@
 <img src="docs/assets/banner.svg" alt="AirdropHunter: cari, saring, dan pantau campaign airdrop dari satu panel kerja, langsung di browser" width="100%" />
 
 <p>
-  <img alt="Tahap 3 · Sumber Live" src="https://img.shields.io/badge/tahap_3-Sumber_Live-91D962?style=flat-square&labelColor=171E27" />
+  <img alt="Tahap 4 · Eligibility" src="https://img.shields.io/badge/tahap_4-Eligibility-91D962?style=flat-square&labelColor=171E27" />
   <img alt="React 19" src="https://img.shields.io/badge/React-19-91D962?style=flat-square&logo=react&logoColor=61DAFB&labelColor=171E27" />
   <img alt="TypeScript 6" src="https://img.shields.io/badge/TypeScript-6-91D962?style=flat-square&logo=typescript&logoColor=3178C6&labelColor=171E27" />
   <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-91D962?style=flat-square&logo=vite&logoColor=646CFF&labelColor=171E27" />
@@ -28,7 +28,7 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
 </div>
 
 > [!IMPORTANT]
-> **Versi 0.3.1 — perapihan Tahap 3:** Aplikasi mengambil metadata protokol dari `https://api.llama.fi/protocols` dan menampilkan kandidat berlabel **LIVE**. Referensi Arbitrum `$ARB` dan Uniswap `$UNI` tersimpan dalam kode dengan label **ARSIP LOKAL**; metadata API tidak membuktikan eligibility, proof, atau keadaan kontrak klaim. Cache segar per sumber digunakan setelah penyimpanan selesai dimuat, retry menghormati pembatasan sumber, dan impor cadangan memvalidasi skema. **Tahap 4 belum dimulai; aplikasi belum mengecek eligibility resmi atau mengirim transaksi klaim.**
+> **Patch Tahap 4 di atas v0.3.1:** Eligibility UNI dapat diperiksa memakai proof JSON publik yang diverifikasi terhadap kontrak resmi Ethereum. Hasil berlaku lima menit dan diperiksa ulang saat membuka detail atau preview klaim. Proof tidak tersedia, sumber gagal, atau campaign belum didukung → `unknown`. Metadata DefiLlama tetap hanya petunjuk penemuan; arsip lokal tetap tidak dapat diklaim. **Transaksi klaim Tahap 5 belum diaktifkan.** Lihat [mekanisme dan batas pemeriksaan](docs/eligibility.md).
 
 <p align="center">
   <img src="docs/screenshots/showcase.png" alt="Contoh antarmuka versi awal AirdropHunter di laptop dan HP" width="100%" />
@@ -82,7 +82,8 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 | --- | --- |
 | `npm run dev` | Server pengembangan Vite |
 | `npm run typecheck` | Pemeriksaan TypeScript (`tsc -b`) |
-| `npm test` | Tes Tahap 2, Tahap 3, dan regresi perapihan |
+| `npm test` | Tes Tahap 2–4 dan regresi perapihan |
+| `npm run test:stage4` | Tes terarah patch eligibility dan regresi penyimpanan; tanpa build aplikasi |
 | `npm run lint` | Oxlint |
 | `npm run build` | Typecheck + build produksi ke `dist/` |
 | `npm run preview` | Menyajikan hasil build |
@@ -93,9 +94,9 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 - [x] **Tahap 2** · Koneksi MetaMask (EIP-6963/EIP-1193), deteksi jaringan salah, penyimpanan IndexedDB per alamat + chain ID + campaign + versi adapter, migrasi & ekspor/impor cadangan
 - [x] **Tahap 3** · Metadata protokol live DefiLlama, kandidat belum terverifikasi, arsip referensi lokal, cache per sumber, dan retry dengan rate limit
 - [x] **Perapihan 0.3.1** · Hidrasi cache sebelum scan otomatis, invalidasi checkpoint versi adapter lama, validasi backup, dan pemisahan label LIVE/ARSIP LOKAL
-- [ ] **Tahap 4** · Eligibility dari aturan, proof, atau snapshot resmi
+- [x] **Tahap 4** · Adapter proof UNI + pembacaan kontrak resmi, hasil usang, dan pemeriksaan ulang per alamat
 - [ ] **Tahap 5** · Klaim testnet: simulasi, estimasi biaya, konfirmasi wallet, dan receipt
 
-Arsip lokal memakai `status: ended` agar aksi klaim tetap nonaktif di aplikasi. Untuk UNI, `deadline: null`: tanggal peluncuran historis tidak digunakan sebagai tenggat klaim, dan status klaim aktual belum diperiksa. Timestamp arsip menunjukkan kapan referensi dimuat pada scan, bukan kapan klaim diverifikasi.
+Arsip lokal memakai `status: ended` agar aksi klaim tetap nonaktif di aplikasi. Untuk UNI, `deadline: null`: tanggal peluncuran historis tidak digunakan sebagai tenggat klaim. Status eligibility dan waktu pembacaan kontrak ditampilkan terpisah dari timestamp pemuatan arsip. Hasil `isClaimed` tidak membuat transaksi terkonfirmasi atau label Sudah diklaim tanpa bukti transaksi.
 
 Rinciannya ada di [`tasks.md`](.kiro/specs/airdrop-hunter-mvp/tasks.md), dengan perilaku sumber data di [`docs/sumber-data.md`](docs/sumber-data.md), kebutuhan di [`requirements.md`](.kiro/specs/airdrop-hunter-mvp/requirements.md), rancangan di [`design.md`](.kiro/specs/airdrop-hunter-mvp/design.md), dan hasil serta batas verifikasi di [`docs/cek-hasil.md`](docs/cek-hasil.md).
