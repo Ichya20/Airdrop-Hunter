@@ -10,9 +10,10 @@ import {
   KIND_TEXT,
   TX_TEXT,
 } from '../../domain/status'
-import type { Identity } from '../../domain/types'
+import type { Campaign, Identity } from '../../domain/types'
 import { ClaimPreview } from '../claims/ClaimPreview'
 import { identityName } from '../wallet/identity'
+import { EligibilityCheck } from './EligibilityCheck'
 import type { DetailRequest, DetailView } from './intent'
 import type { CampaignRow } from './rows'
 
@@ -25,6 +26,8 @@ interface CampaignDrawerProps {
   onClose: () => void
   onToggleWatch: (campaignId: string) => void
   onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
+  eligibilityBusy: boolean
+  onRecheckEligibility: (campaign: Campaign, proofJson?: string) => Promise<void>
 }
 
 export function CampaignDrawer({
@@ -36,6 +39,8 @@ export function CampaignDrawer({
   onClose,
   onToggleWatch,
   onSwitchNetwork,
+  eligibilityBusy,
+  onRecheckEligibility,
 }: CampaignDrawerProps) {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const requirementsRef = useRef<HTMLHeadingElement>(null)
@@ -72,6 +77,8 @@ export function CampaignDrawer({
           onClose={onClose}
           onToggleWatch={onToggleWatch}
           onSwitchNetwork={onSwitchNetwork}
+          eligibilityBusy={eligibilityBusy}
+          onRecheckEligibility={onRecheckEligibility}
         />
       ) : (
         <MissingContent titleRef={titleRef} onClose={onClose} />
@@ -117,6 +124,8 @@ interface DetailContentProps {
   onClose: () => void
   onToggleWatch: (campaignId: string) => void
   onSwitchNetwork?: (targetChainId: number) => Promise<boolean>
+  eligibilityBusy: boolean
+  onRecheckEligibility: (campaign: Campaign, proofJson?: string) => Promise<void>
 }
 
 function hostOf(url: string): string {
@@ -140,6 +149,8 @@ function DetailContent({
   onClose,
   onToggleWatch,
   onSwitchNetwork,
+  eligibilityBusy,
+  onRecheckEligibility,
 }: DetailContentProps) {
   const { campaign, eligibility, tx, label, action, network } = row
   const [view, setView] = useState<DetailView>(initialView)
@@ -188,14 +199,20 @@ function DetailContent({
     switch (action.kind) {
       case 'claim':
         return (
-          <button type="button" className="btn btn--primary" onClick={() => setView('claim')}>
+          <button type="button" className="btn btn--primary" onClick={() => {
+            void onRecheckEligibility(campaign)
+            setView('claim')
+          }}>
             <Icon name="send" />
             Klaim
           </button>
         )
       case 'claim_site':
         return (
-          <button type="button" className="btn btn--primary" onClick={() => openOrExplainLink('situs klaim resmi', campaign.officialUrl)}>
+          <button type="button" className="btn btn--primary" onClick={() => {
+            void onRecheckEligibility(campaign)
+            openOrExplainLink('situs klaim resmi', campaign.officialUrl)
+          }}>
             <Icon name="external" />
             Buka situs klaim resmi
           </button>
@@ -228,13 +245,8 @@ function DetailContent({
           <button
             type="button"
             className="btn btn--secondary"
-            onClick={() =>
-              setNotice(
-                identity.kind === 'demo'
-                  ? 'Fixture DEMO tidak memiliki data kelayakan untuk campaign ini. Pemeriksaan resmi ditambahkan per campaign di tahap 4.'
-                  : `Pemeriksaan kelayakan otomatis untuk ${name} ditambahkan di tahap 4.`,
-              )
-            }
+            disabled={eligibilityBusy}
+            onClick={() => void onRecheckEligibility(campaign)}
           >
             <Icon name="help" />
             Periksa kelayakan
@@ -324,7 +336,7 @@ function DetailContent({
                   <Icon name="globe" size={16} />
                   <span>
                     {campaign.sourceKind === 'local-archive'
-                      ? 'Arsip referensi lokal. Label Berakhir berarti entri diarsipkan dalam aplikasi dan klaim dinonaktifkan. Status kontrak serta kelayakan wallet belum diperiksa secara langsung.'
+                      ? 'Arsip referensi lokal. Label Berakhir berarti entri diarsipkan dalam aplikasi dan klaim dinonaktifkan. Hasil eligibility untuk alamat aktif ditampilkan terpisah di bawah.'
                       : `Metadata LIVE dari ${campaign.foundIn.map((id) => sourceNames.get(id) ?? id).join(', ')}. Belum menjadi bukti eligibility atau hak klaim wallet.`}
                   </span>
                 </p>
@@ -339,7 +351,7 @@ function DetailContent({
                 <div>
                   <dt>Campaign</dt>
                   <dd className="status-grid__value">{CAMPAIGN_STATUS_TEXT[campaign.status]}</dd>
-                  <dd className="status-grid__sub">Menurut sumber</dd>
+                  <dd className="status-grid__sub">{campaign.sourceKind === 'local-archive' ? 'Arsip lokal aplikasi · klaim dinonaktifkan' : 'Menurut sumber'}</dd>
                 </div>
                 <div>
                   <dt>Eligibility · {name}</dt>
@@ -358,7 +370,17 @@ function DetailContent({
                 {eligibility.rule ? ` · aturan ${eligibility.rule}` : ''}
                 {eligibility.checkedAt ? ` · diperiksa ${formatDateTime(eligibility.checkedAt)}` : ' · belum diperiksa'}
               </p>
+              {row.eligibilityStale ? <p className="warn-text small">Hasil eligibility usang; periksa ulang sebelum mengandalkannya.</p> : null}
             </section>
+
+            <EligibilityCheck
+              campaign={campaign}
+              identity={identity}
+              result={eligibility}
+              busy={eligibilityBusy}
+              stale={row.eligibilityStale}
+              onRecheck={(proofJson) => onRecheckEligibility(campaign, proofJson)}
+            />
 
             <section aria-labelledby="detail-source-title">
               <h3 id="detail-source-title" className="section-title">

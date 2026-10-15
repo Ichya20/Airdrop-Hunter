@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { resolveEligibility } from '../adapters/eligibility'
 import { createSourceAdapters, type SourceMode } from '../adapters/sources'
 import { shortenAddress } from '../domain/address'
 import type { HexAddress, Identity } from '../domain/types'
@@ -8,7 +7,7 @@ import {
   readScenarioParam,
   type DemoScenario,
 } from '../demo/demoSources'
-import { resolveTransaction } from '../features/claims/resolveTransaction'
+import { useEligibility } from '../features/eligibility/useEligibility'
 import { CampaignDrawer } from '../features/dashboard/CampaignDrawer'
 import { DashboardView } from '../features/dashboard/DashboardView'
 import type { DetailRequest, OpenIntent } from '../features/dashboard/intent'
@@ -16,10 +15,10 @@ import { buildRows } from '../features/dashboard/rows'
 import { WatchlistView } from '../features/dashboard/WatchlistView'
 import { SCAN_TTL_MS, useScanner } from '../features/scanner/useScanner'
 import { AccountDialog } from '../features/wallet/AccountDialog'
-import { walletAccountKey } from '../features/wallet/identity'
+import { identityKey, walletAccountKey } from '../features/wallet/identity'
 import { useMetaMaskWallet } from '../features/wallet/useMetaMaskWallet'
 import { createBrowserStorage } from '../storage'
-import type { ImportBackupResult, StorageStats, StoredScanRecord } from '../storage/types'
+import type { ImportBackupResult, StorageStats } from '../storage/types'
 import { AppHeader } from './AppHeader'
 import { DemoBanner } from './DemoBanner'
 import { useHashRoute, useMediaQuery, useNow } from './hooks'
@@ -57,7 +56,8 @@ export function App() {
 
   const [identity, setIdentity] = useState<Identity>({ kind: 'demo' })
   const [watchlists, setWatchlists] = useState<Record<string, string[]>>({})
-  const [cachedRecords, setCachedRecords] = useState<ReadonlyMap<string, StoredScanRecord>>(() => new Map())
+  const [storageBusy, setStorageBusy] = useState(false)
+  const [dataEpoch, setDataEpoch] = useState(0)
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null)
   const [detail, setDetail] = useState<DetailRequest | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -78,6 +78,19 @@ export function App() {
       // Abaikan bila gagal membaca statistik storage.
     }
   }, [storage])
+
+  const onEligibilitySaved = useCallback(async () => {
+    refreshNow()
+    await refreshStorageStats()
+  }, [refreshNow, refreshStorageStats])
+  const { records: cachedRecords, pendingIds: eligibilityPendingIds, recheck: recheckEligibility, invalidate: invalidateEligibility } = useEligibility({
+    storage,
+    identity,
+    campaigns: scanner.campaigns,
+    ready: hydrated && !storageBusy,
+    contextKey: `${identityKey(identity)}:${sourceMode}:${dataEpoch}`,
+    onSaved: onEligibilitySaved,
+  })
 
   useEffect(() => {
     let active = true
@@ -142,52 +155,21 @@ export function App() {
     }
   }, [hydrated, scanner.state.finishedAt, scanner.state.sources, storage, refreshStorageStats])
 
-  useEffect(() => {
-    let active = true
-    if (!hydrated || scanner.campaigns.length === 0 || identity.kind === 'none') {
-      return () => {
-        active = false
-      }
-    }
-    void (async () => {
-      const existing = await storage.loadScanRecordsForIdentity(identity, scanner.campaigns)
-      if (!active) return
-      setCachedRecords(existing)
-      const entries = scanner.campaigns.map((campaign) => {
-        const cached = existing.get(campaign.id) ?? null
-        return {
-          campaign,
-          eligibility: resolveEligibility(campaign, identity, cached),
-          tx: resolveTransaction(campaign, identity, cached),
-        }
-      })
-      await storage.saveScanRecordsForIdentity(identity, entries)
-      if (!active) return
-      const updated = await storage.loadScanRecordsForIdentity(identity, scanner.campaigns)
-      if (!active) return
-      setCachedRecords(updated)
-      await refreshStorageStats()
-    })()
-    return () => {
-      active = false
-    }
-  }, [hydrated, identity, scanner.campaigns, storage, refreshStorageStats])
-
   const changeIdentity = useCallback(
     (next: Identity, message: string) => {
-      setCachedRecords(new Map())
+      if (identityKey(next) !== identityKey(identity)) void invalidateEligibility()
       setIdentity(next)
       setDetail(null)
       setAccountOpen(false)
       announce(message)
     },
-    [announce],
+    [announce, invalidateEligibility, identity],
   )
 
   const wallet = useMetaMaskWallet({
     identity,
     onSessionChange: (next, message) => {
-      setCachedRecords(new Map())
+      if (identityKey(next) !== identityKey(identity)) void invalidateEligibility()
       setIdentity(next)
       setDetail(null)
       announce(message)
@@ -240,8 +222,10 @@ export function App() {
   )
 
   const openDetail = useCallback((campaignId: string, intent: OpenIntent) => {
+    const campaign = scanner.campaigns.find((item) => item.id === campaignId)
+    if (campaign) void recheckEligibility(campaign)
     setDetail({ campaignId, ...intent })
-  }, [])
+  }, [scanner.campaigns, recheckEligibility])
 
   const handleScenarioChange = (next: DemoScenario) => {
     sourceRegistry.store.set(next)
@@ -249,6 +233,7 @@ export function App() {
   }
 
   const handleSourceModeChange = (next: SourceMode) => {
+    if (next !== sourceMode) void invalidateEligibility()
     setSourceMode(next)
     setDetail(null)
   }
@@ -263,46 +248,58 @@ export function App() {
       if (scanner.isRunning) {
         return { ok: false, message: 'Batalkan atau tunggu scan selesai sebelum mengimpor cadangan.' }
       }
-      const result = await storage.importBackup(rawJson)
-      if (result.ok) {
-        setCachedRecords(new Map())
-        setDetail(null)
-        const [savedSettings, allWatchlists, checkpoints] = await Promise.all([
-          storage.loadSettings(),
-          storage.loadAllWatchlists(),
-          storage.loadSourceCheckpoints(),
-        ])
-        if (savedSettings) {
-          setIdentity(savedSettings.identity)
-          if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
-          sourceRegistry.store.set(savedSettings.scenario)
-          setScenario(savedSettings.scenario)
-        } else {
-          setIdentity({ kind: 'demo' })
-          setSourceMode('all')
-          sourceRegistry.store.set('normal')
-          setScenario('normal')
+      setStorageBusy(true)
+      await invalidateEligibility()
+      try {
+        const result = await storage.importBackup(rawJson)
+        if (result.ok) {
+          setDetail(null)
+          const [savedSettings, allWatchlists, checkpoints] = await Promise.all([
+            storage.loadSettings(),
+            storage.loadAllWatchlists(),
+            storage.loadSourceCheckpoints(),
+          ])
+          if (savedSettings) {
+            setIdentity(savedSettings.identity)
+            if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
+            sourceRegistry.store.set(savedSettings.scenario)
+            setScenario(savedSettings.scenario)
+          } else {
+            setIdentity({ kind: 'demo' })
+            setSourceMode('all')
+            sourceRegistry.store.set('normal')
+            setScenario('normal')
+          }
+          setWatchlists(allWatchlists)
+          scanner.hydrateCheckpoints(checkpoints, true)
+          await refreshStorageStats()
+          announce('Cadangan data lokal berhasil diimpor.')
         }
-        setWatchlists(allWatchlists)
-        scanner.hydrateCheckpoints(checkpoints, true)
-        await refreshStorageStats()
-        announce('Cadangan data lokal berhasil diimpor.')
+        return result
+      } finally {
+        setDataEpoch((value) => value + 1)
+        setStorageBusy(false)
       }
-      return result
     },
-    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce],
+    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce, invalidateEligibility],
   )
 
   const handleClearStorage = useCallback(async () => {
     if (scanner.isRunning) throw new Error('Batalkan atau tunggu scan selesai sebelum membersihkan cache.')
-    await storage.clearAll()
-    scanner.hydrateCheckpoints([], true)
-    setWatchlists({})
-    setCachedRecords(new Map())
-    setDetail(null)
-    await refreshStorageStats()
-    announce('Cache IndexedDB lokal telah dibersihkan.')
-  }, [storage, scanner, refreshStorageStats, announce])
+    setStorageBusy(true)
+    await invalidateEligibility()
+    try {
+      await storage.clearAll()
+      scanner.hydrateCheckpoints([], true)
+      setWatchlists({})
+      setDetail(null)
+      await refreshStorageStats()
+      announce('Cache IndexedDB lokal telah dibersihkan.')
+    } finally {
+      setDataEpoch((value) => value + 1)
+      setStorageBusy(false)
+    }
+  }, [storage, scanner, refreshStorageStats, announce, invalidateEligibility])
 
   const counts = { dashboard: rows.length, watchlist: rows.filter((row) => row.watched).length }
 
@@ -380,6 +377,8 @@ export function App() {
         onClose={() => setDetail(null)}
         onToggleWatch={toggleWatch}
         onSwitchNetwork={wallet.switchNetwork}
+        eligibilityBusy={detail !== null && eligibilityPendingIds.has(detail.campaignId)}
+        onRecheckEligibility={recheckEligibility}
       />
 
       <AccountDialog

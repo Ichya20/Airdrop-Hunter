@@ -2,7 +2,7 @@
   "name": "airdrop-hunter",
   "private": true,
   "version": "0.3.1",
-  "description": "AirdropHunter tahap 3: kandidat protokol dari metadata DefiLlama, arsip referensi lokal, koneksi MetaMask Chrome, mode pantau, dan penyimpanan IndexedDB. Versi 0.3.1 merapikan cache, retry, dan backup; eligibility resmi belum tersedia.",
+  "description": "AirdropHunter: metadata DefiLlama, arsip lokal, MetaMask Chrome, dan pemeriksaan proof publik UNI terhadap kontrak resmi. Patch Tahap 4; transaksi klaim belum diaktifkan.",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
@@ -11,6 +11,7 @@
     "dev": "vite",
     "typecheck": "tsc -b",
     "test": "node scripts/test.mjs",
+    "test:stage4": "node scripts/test.mjs --stage4",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

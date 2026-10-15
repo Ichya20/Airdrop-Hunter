@@ -302,10 +302,21 @@ export function validateBackupPayload(value: unknown): BackupValidationResult {
       const restoredEligibility = legacy && (r.eligibility === undefined || r.eligibility === null)
         ? { status: 'unknown' as const, reason: 'Dipulihkan dari cadangan lokal.', rule: null, source: 'Cadangan lokal', checkedAt: null }
         : eligibility(r.eligibility, `${path}.eligibility`)
+      // Backup contents are user supplied; even a fresh official-looking result
+      // must be checked again before it can describe a real account.
+      const importedEligibility: EligibilityResult = storedCampaign.origin !== 'demo' || addressScope !== 'demo'
+        ? {
+          status: 'unknown',
+          reason: 'Hasil dari cadangan lokal harus diperiksa ulang melalui sumber resmi untuk alamat aktif.',
+          rule: null,
+          source: 'Cadangan lokal · perlu verifikasi ulang',
+          checkedAt: null,
+        }
+        : restoredEligibility
       return {
         key, addressScope, chainId, campaignId, adapterVersion,
         campaign: storedCampaign,
-        eligibility: restoredEligibility,
+        eligibility: importedEligibility,
         tx: nullable(oldDefault(r.tx, null), `${path}.tx`, transaction),
         savedAt: timestamp(oldDefault(r.savedAt, now), `${path}.savedAt`),
       }

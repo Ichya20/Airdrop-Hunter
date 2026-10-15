@@ -299,6 +299,8 @@ export async function runStage2Tests(): Promise<{ passed: number; details: strin
     assert.equal(storedRecordA.key, keyA)
     assert.equal(isRecordMatchingIdentity(storedRecordA, idWalletB, liveCampaignV1), false)
     assert.equal(isRecordMatchingIdentity(storedRecordA, idWalletA, liveCampaignV2), false)
+    assert.equal(resolveEligibility(liveCampaignV1, idWalletA, storedRecordA).status, 'unknown')
+    assert.equal(resolveEligibility(liveCampaignV1, idWalletB, storedRecordA).status, 'unknown')
   })
 
   await step('R9.2: Persistensi setelah refresh serta ekspor/impor cadangan dan migrasi skema v1 -> v2', async () => {
@@ -350,7 +352,9 @@ export async function runStage2Tests(): Promise<{ passed: number; details: strin
     assert.equal(restoredCheckpoints[0].campaigns[0].id, campaign.id)
 
     const restoredRecords = await storageAfterRefresh.loadScanRecordsForIdentity(idMeta, [campaign])
-    assert.equal(restoredRecords.get(campaign.id)?.eligibility.status, 'eligible')
+    assert.equal(restoredRecords.get(campaign.id)?.eligibility.status, 'unknown')
+    assert.equal(restoredRecords.get(campaign.id)?.eligibility.rule, null)
+    assert.equal(restoredRecords.get(campaign.id)?.eligibility.checkedAt, null)
 
     // Uji migrasi dari payload v1
     const v1Payload = {

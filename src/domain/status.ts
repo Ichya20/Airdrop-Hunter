@@ -164,6 +164,9 @@ export function explainLabel(
     case 'claimed':
       return 'Klaim tercatat terkonfirmasi dengan bukti dari adapter.'
     case 'ended':
+      if (campaign.sourceKind === 'local-archive') {
+        return 'Campaign diarsipkan lokal dalam aplikasi dan klaim dinonaktifkan. Eligibility alamat serta status kontrak ditampilkan terpisah.'
+      }
       return campaign.status === 'ended'
         ? 'Campaign sudah berakhir dan ditampilkan sebagai arsip. Klaim dinonaktifkan.'
         : 'Tenggat sudah lewat walaupun sumber masih mencatat klaim terbuka. Ditampilkan sebagai arsip; klaim dinonaktifkan.'

@@ -4,16 +4,18 @@ import { build } from 'vite'
 
 // Bundle suite TypeScript untuk Node, tanpa server HTTP, API live, atau wallet nyata.
 const outDir = resolve('node_modules/.tmp/tests')
+const stage4Only = process.argv.includes('--stage4')
+const runner = stage4Only ? 'stage4-runner.mjs' : 'runner.mjs'
 await build({
   configFile: false,
   logLevel: 'warn',
   build: {
-    ssr: resolve('src/tests/runAll.ts'),
+    ssr: resolve(stage4Only ? 'src/tests/runStage4.ts' : 'src/tests/runAll.ts'),
     target: 'node20',
     outDir,
     emptyOutDir: false,
-    rolldownOptions: { external: ['viem'], output: { entryFileNames: 'runner.mjs' } },
+    rolldownOptions: { external: ['viem', 'viem/accounts', 'viem/chains', 'react'], output: { entryFileNames: runner } },
   },
 })
-const { runAllTests } = await import(pathToFileURL(resolve(outDir, 'runner.mjs')).href)
+const { runAllTests } = await import(pathToFileURL(resolve(outDir, runner)).href)
 await runAllTests()
