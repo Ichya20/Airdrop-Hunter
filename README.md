@@ -1,3 +1,5 @@
+> **Pembaruan 16 Oktober 2026 — optimasi sebelum Tahap 5:** Proyek lengkap beserta build produksi tersedia dalam paket ini. Mulai dari [MULAI-DI-SINI.md](MULAI-DI-SINI.md). JavaScript awal berkurang sekitar 70%, hasil ditampilkan per halaman, dan kontrol DEMO disembunyikan dari alur harian. Lihat [hasil verifikasi](docs/optimasi-sebelum-tahap5.md). Transaksi Tahap 5 tetap belum aktif.
+
 <div align="center">
 
 <img src="docs/assets/banner.svg" alt="AirdropHunter: cari, saring, dan pantau campaign airdrop dari satu panel kerja, langsung di browser" width="100%" />

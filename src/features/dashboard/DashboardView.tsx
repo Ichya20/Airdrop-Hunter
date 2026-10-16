@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { getNetwork, isKnownChain } from '../../domain/networks'
 import type { Identity } from '../../domain/types'
 import { ScanPanel } from '../scanner/ScanPanel'
 import type { Scanner } from '../scanner/useScanner'
-import { identityName } from '../wallet/identity'
+import { identityKey, identityName } from '../wallet/identity'
 import { CampaignResults, SkeletonResults } from './CampaignResults'
 import { ClaimCostNotice } from './ClaimCostNotice'
 import { FilterBar } from './FilterBar'
@@ -55,9 +55,14 @@ export function DashboardView({
   announce,
 }: DashboardViewProps) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const visible = useMemo(() => applyFilters(rows, filters, now), [rows, filters, now])
-  const counts = useMemo(() => countByLabel(rows, filters), [rows, filters])
-  const networks = useMemo(() => networkOptions(rows, filters), [rows, filters])
+  const query = useDeferredValue(filters.query)
+  const activeFilters = useMemo(
+    () => ({ query, label: filters.label, chainId: filters.chainId, sort: filters.sort }),
+    [query, filters.label, filters.chainId, filters.sort],
+  )
+  const visible = useMemo(() => applyFilters(rows, activeFilters, now), [rows, activeFilters, now])
+  const counts = useMemo(() => countByLabel(rows, activeFilters), [rows, activeFilters])
+  const networks = useMemo(() => networkOptions(rows, activeFilters), [rows, activeFilters])
   const name = identityName(identity)
   const sortText = SORT_OPTIONS.find((option) => option.value === filters.sort)?.caption ?? ''
 
@@ -72,10 +77,10 @@ export function DashboardView({
       return
     }
     const timer = window.setTimeout(() => {
-      announce(`${visibleCountRef.current} campaign ditampilkan.`)
+      announce(`${visibleCountRef.current} campaign cocok.`)
     }, 600)
     return () => window.clearTimeout(timer)
-  }, [filters, announce])
+  }, [activeFilters, announce])
 
   const resetFilters = () => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort })
   const { state, hasData, isRunning } = scanner
@@ -165,6 +170,7 @@ export function DashboardView({
   } else {
     content = (
       <CampaignResults
+        key={`${identityKey(identity)}:${JSON.stringify(activeFilters)}`}
         rows={visible}
         tableLayout={tableLayout}
         identityLabel={name}
@@ -206,7 +212,7 @@ export function DashboardView({
           </h2>
           {hasData ? (
             <span className="panel__count">
-              {visible.length} dari {rows.length} ditampilkan
+              {visible.length} dari {rows.length} campaign
             </span>
           ) : null}
           {hasActiveFilters(filters) && visible.length > 0 ? (
@@ -218,7 +224,7 @@ export function DashboardView({
         {hasData && rows.length > 0 ? (
           <FilterBar filters={filters} onChange={setFilters} counts={counts} networks={networks} />
         ) : null}
-        <div className="panel__content" aria-busy={isRunning && !hasData}>
+        <div className="panel__content" aria-busy={(isRunning && !hasData) || query !== filters.query}>
           {content}
         </div>
       </section>

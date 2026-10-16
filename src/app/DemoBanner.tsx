@@ -8,6 +8,7 @@ interface DemoBannerProps {
   scenario: DemoScenario
   /** Layar sempit: pemilih sumber & skenario diringkas agar daftar campaign cepat terlihat. */
   compact: boolean
+  showControls?: boolean
   onSourceModeChange: (mode: SourceMode) => void
   onScenarioChange: (scenario: DemoScenario) => void
 }
@@ -16,12 +17,22 @@ export function DemoBanner({
   sourceMode,
   scenario,
   compact,
+  showControls = false,
   onSourceModeChange,
   onScenarioChange,
 }: DemoBannerProps) {
   const id = useId()
   const currentScenario = DEMO_SCENARIOS.find((option) => option.value === scenario)
   const currentMode = SOURCE_MODE_OPTIONS.find((option) => option.value === sourceMode)
+
+  if (!showControls) return (
+    <aside className="demo-banner" aria-label="Informasi pencarian">
+      <p className="demo-banner__text">
+        <span className="origin origin--live">LIVE</span>
+        <span>Cari token gratis bernilai dari DefiLlama dan Merkl. Hak klaim dan biaya gas diperiksa terpisah.</span>
+      </p>
+    </aside>
+  )
 
   const control = (
     <>
@@ -74,7 +85,7 @@ export function DemoBanner({
   return (
     <aside className={`demo-banner${compact ? ' demo-banner--compact' : ''}`} aria-label="Pengaturan sumber data Live dan DEMO">
       <p className="demo-banner__text">
-        <span className="origin origin--live">LIVE</span>
+        {sourceMode !== 'demo' ? <span className="origin origin--live">LIVE</span> : null}
         {sourceMode !== 'live' ? (
           <span className="origin origin--demo">
             <Icon name="flask" size={12} />

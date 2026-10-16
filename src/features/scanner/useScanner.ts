@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { SourceAdapter } from '../../adapters/sources/types'
-import { mergeCampaigns } from '../../domain/normalize'
 import type { Campaign, DataOrigin } from '../../domain/types'
 import type { StoredSourceCheckpoint } from '../../storage/types'
 import { DEFAULT_SCAN_OPTIONS, runScan, type ScanEvent, type ScanOptions } from './runScan'
-import { sourcesNeedingRefresh } from './scanCache'
+import { createCampaignSelector, sourcesNeedingRefresh } from './scanCache'
 
 export type SourcePhase =
   | 'idle'
@@ -369,25 +368,16 @@ export function useScanner(
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [ready, enabledAdapters, execute, ttlMs])
 
-  const campaigns = useMemo(
-    () => mergeCampaigns(visibleSources.flatMap((source) => source.campaigns)),
-    [visibleSources],
-  )
+  const selectCampaigns = useMemo(() => createCampaignSelector(), [])
+  const campaigns = useMemo(() => selectCampaigns(visibleSources), [selectCampaigns, visibleSources])
 
-  const staleSourceIds = useMemo(
-    () =>
-      new Set(
-        visibleSources
-          .filter(
-            (source) =>
-              (source.phase === 'error' || source.phase === 'cancelled') &&
-              source.lastSuccessAt !== null &&
-              source.campaigns.length > 0,
-          )
-          .map((source) => source.id),
-      ),
-    [visibleSources],
-  )
+  const staleIds = visibleSources
+    .filter((source) =>
+      (source.phase === 'error' || source.phase === 'cancelled') &&
+      source.lastSuccessAt !== null && source.campaigns.length > 0,
+    )
+    .map((source) => source.id).sort().join('\0')
+  const staleSourceIds = useMemo(() => new Set(staleIds ? staleIds.split('\0') : []), [staleIds])
 
   // Ringkasan mengikuti mode yang terlihat, termasuk ketika seluruh datanya berasal dari cache.
   const displayState = useMemo(() => ({

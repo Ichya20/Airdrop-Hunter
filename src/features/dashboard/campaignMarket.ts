@@ -1,4 +1,4 @@
-import { UNI_CAMPAIGN_ID, UNI_DISTRIBUTOR, UNI_TOKEN } from '../../adapters/eligibility/uni'
+import { UNI_CAMPAIGN_ID, UNI_DISTRIBUTOR, UNI_TOKEN } from '../../adapters/eligibility/uniMetadata'
 import { isMarketEvidenceFresh, marketTokenKey, type TokenMarketEvidence } from '../../adapters/market'
 import type { Campaign, HexAddress } from '../../domain/types'
 

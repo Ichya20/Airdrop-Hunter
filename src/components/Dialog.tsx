@@ -41,6 +41,8 @@ export function Dialog({ open, onClose, labelledBy, variant, initialFocusRef, ch
     const dialog = dialogRef.current
     if (!dialog) return
     const handleClose = () => {
+      // StrictMode dapat membuka kembali dialog sebelum event close lama diproses.
+      if (dialog.open) return
       const target = returnFocusRef.current
       returnFocusRef.current = null
       if (target?.isConnected) target.focus()
@@ -48,7 +50,14 @@ export function Dialog({ open, onClose, labelledBy, variant, initialFocusRef, ch
       onCloseRef.current()
     }
     dialog.addEventListener('close', handleClose)
-    return () => dialog.removeEventListener('close', handleClose)
+    return () => {
+      dialog.removeEventListener('close', handleClose)
+      // Panel dimuat sesuai kebutuhan dan dapat dilepas saat ditutup.
+      if (dialog.open) dialog.close()
+      const target = returnFocusRef.current
+      if (target?.isConnected) target.focus()
+      returnFocusRef.current = null
+    }
   }, [])
 
   return (

@@ -2,7 +2,7 @@ import { useMemo, type RefObject } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import type { Identity } from '../../domain/types'
-import { identityName } from '../wallet/identity'
+import { identityKey, identityName } from '../wallet/identity'
 import { CampaignResults, SkeletonResults } from './CampaignResults'
 import { sortRows } from './filtering'
 import type { CampaignRow } from './rows'
@@ -37,7 +37,10 @@ export function WatchlistView({
     [rows, now],
   )
   // Campaign yang dipantau tetapi tidak ada di hasil scan terakhir.
-  const missing = watchedIds.filter((id) => !rows.some((row) => row.campaign.id === id)).length
+  const missing = useMemo(() => {
+    const available = new Set(rows.map((row) => row.campaign.id))
+    return watchedIds.filter((id) => !available.has(id)).length
+  }, [rows, watchedIds])
 
   let content
   if (loading && watchedRows.length === 0 && watchedIds.length > 0) {
@@ -64,6 +67,7 @@ export function WatchlistView({
   } else {
     content = (
       <CampaignResults
+        key={identityKey(identity)}
         rows={watchedRows}
         tableLayout={tableLayout}
         identityLabel={name}

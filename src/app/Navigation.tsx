@@ -41,10 +41,10 @@ export function Sidebar({ route, counts }: NavigationProps) {
       <div className="sidebar__note">
         <p className="sidebar__note-title">
           <Icon name="globe" size={14} />
-          Tahap 3 · Sumber Live
+          Sumber Live
         </p>
-        <p>Kandidat protokol dari DefiLlama dengan cache 60 menit. Referensi Arbitrum dan Uniswap berlabel ARSIP LOKAL.</p>
-        <p>Wallet: MetaMask Chrome extension di laptop. HP: mode pantau alamat publik.</p>
+        <p>DefiLlama dan Merkl · cache 60 menit.</p>
+        <p>Hubungkan MetaMask atau pantau alamat publik.</p>
       </div>
     </nav>
   )

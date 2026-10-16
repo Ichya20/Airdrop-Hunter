@@ -16,6 +16,7 @@ interface AccountDialogProps {
   identity: Identity
   wallet: MetaMaskWalletController
   storageStats: StorageStats | null
+  allowDemo?: boolean
   onClose: () => void
   onSelectDemo: () => void
   onWatch: (address: HexAddress) => void
@@ -50,6 +51,7 @@ function AccountContent({
   identity,
   wallet,
   storageStats,
+  allowDemo = false,
   onClose,
   onSelectDemo,
   onWatch,
@@ -164,7 +166,7 @@ function AccountContent({
     <div className="account">
       <header className="dialog__head">
         <div>
-          <p className="eyebrow">Identitas lokal · Tahap 2</p>
+          <p className="eyebrow">Akun lokal</p>
           <h2 id="account-title" className="dialog__title" ref={titleRef} tabIndex={-1}>
             Akun, jaringan, dan data lokal
           </h2>
@@ -245,35 +247,8 @@ function AccountContent({
                   <div>
                     <p>
                       <strong>Jaringan belum didukung ({getNetwork(identity.chainId).name}).</strong> Pilih salah satu
-                      jaringan yang didukung di atas atau tekan tombol cepat di bawah untuk memindahkan jaringan di
-                      MetaMask.
+                      jaringan yang didukung di atas untuk memindahkan jaringan di MetaMask.
                     </p>
-                    <div className="button-row" style={{ marginTop: '0.5rem' }}>
-                      <button
-                        type="button"
-                        className="btn btn--secondary btn--xs"
-                        disabled={isSwitching}
-                        onClick={() => void wallet.switchNetwork(1)}
-                      >
-                        Pindah ke Ethereum (1)
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--secondary btn--xs"
-                        disabled={isSwitching}
-                        onClick={() => void wallet.switchNetwork(8453)}
-                      >
-                        Pindah ke Base (8453)
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--secondary btn--xs"
-                        disabled={isSwitching}
-                        onClick={() => void wallet.switchNetwork(11155111)}
-                      >
-                        Pindah ke Sepolia (11155111)
-                      </button>
-                    </div>
                   </div>
                 </div>
               ) : null}
@@ -291,7 +266,7 @@ function AccountContent({
                 {isConnecting ? <span className="spinner spinner--ink" aria-hidden="true" /> : <Icon name="wallet" />}
                 <span>{isConnecting ? 'Menghubungkan…' : 'Hubungkan MetaMask'}</span>
               </button>
-              <button
+              {allowDemo ? <button
                 type="button"
                 className="btn btn--ghost"
                 aria-pressed={identity.kind === 'demo'}
@@ -299,7 +274,7 @@ function AccountContent({
               >
                 <Icon name="flask" />
                 {identity.kind === 'demo' ? 'Akun DEMO aktif' : 'Gunakan Akun DEMO'}
-              </button>
+              </button> : null}
             </div>
           )}
 
@@ -381,7 +356,7 @@ function AccountContent({
                 <Icon name="eye" />
                 Pantau alamat
               </button>
-              {identity.kind !== 'demo' ? (
+              {allowDemo && identity.kind !== 'demo' ? (
                 <button type="button" className="btn btn--ghost" onClick={onSelectDemo}>
                   <Icon name="flask" />
                   Gunakan Akun DEMO
@@ -391,14 +366,13 @@ function AccountContent({
           </form>
         </section>
 
-        <section className="account__section" aria-labelledby={`${ids}-storage`}>
-          <h3 id={`${ids}-storage`} className="account__heading">
+        <details className="account__section">
+          <summary id={`${ids}-storage`} className="account__heading">
             <Icon name="archive" />
-            Data lokal & cadangan (IndexedDB)
-          </h3>
+            Data lokal & cadangan
+          </summary>
           <p className="muted">
-            Pengaturan, watchlist, dan hasil scan disimpan di browser per alamat + chain ID + campaign ID + versi
-            adapter. Data antar-wallet selalu dipisahkan.
+            Pengaturan, watchlist, dan hasil scan disimpan di browser ini. Gunakan cadangan untuk memindahkannya.
           </p>
           {storageStats ? (
             <p className="muted small mono">
@@ -436,7 +410,7 @@ function AccountContent({
               <span>{storageNotice.text}</span>
             </p>
           ) : null}
-        </section>
+        </details>
 
         {identity.kind !== 'none' ? (
           <div className="account__footer">

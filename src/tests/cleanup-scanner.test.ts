@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import type { SourceAdapter } from '../adapters/sources/types'
-import { sourcesNeedingRefresh } from '../features/scanner/scanCache'
+import { createCampaignSelector, sourcesNeedingRefresh } from '../features/scanner/scanCache'
+import { mapDefiLlamaPayloadToCampaigns } from '../adapters/sources/liveDefiLlamaAdapter'
 
 const NOW = Date.parse('2026-10-14T12:00:00.000Z')
 const TTL_MS = 60 * 60_000
@@ -75,6 +76,17 @@ export async function runCleanupScannerTests(): Promise<{ passed: number; detail
       { id: boundary.id, lastSuccessAt: isoAt(TTL_MS) },
       { id: almost.id, lastSuccessAt: isoAt(TTL_MS - 1) },
     ], TTL_MS, NOW), [boundary])
+  })
+
+  step('Progres scan mempertahankan daftar hasil; data sumber baru tetap digabung ulang', () => {
+    const select = createCampaignSelector()
+    const campaigns = mapDefiLlamaPayloadToCampaigns([], { checkedAt: new Date(NOW).toISOString() })
+    const initial = select([{ campaigns }])
+    assert.strictEqual(select([{ campaigns }]), initial)
+    const replacement = select([{ campaigns: [...campaigns] }])
+    assert.notStrictEqual(replacement, initial)
+    assert.deepEqual(replacement, initial)
+    assert.equal(select([]).length, 0)
   })
 
   return { passed, details }

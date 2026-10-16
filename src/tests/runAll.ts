@@ -15,6 +15,8 @@ import { runDiscoveryIntegrationTests } from './discovery-integration.test'
 import { runValueMarketTests } from './value-market.test'
 import { runValuePolicyTests } from './value-policy.test'
 import { runValueRewardTests } from './value-rewards.test'
+import { runMarketPerformanceTests } from './performance-market.test'
+import { runResultsPerformanceTests } from './results-performance.test'
 
 export async function runAllTests(): Promise<void> {
   let passed = 0
@@ -23,7 +25,7 @@ export async function runAllTests(): Promise<void> {
     for (const detail of result.details) console.log(detail)
     passed += result.passed
   }
-  for (const run of [runValueMarketTests, runValuePolicyTests, runValueRewardTests]) {
+  for (const run of [runValueMarketTests, runValuePolicyTests, runValueRewardTests, runMarketPerformanceTests, runResultsPerformanceTests]) {
     const result = await run()
     result.details.forEach((detail) => console.log(detail))
     passed += result.passed

@@ -1,4 +1,3 @@
-import { arbitrum, avalanche, base, bsc, celo, linea, mainnet, optimism, polygon, scroll, unichain, zksync } from 'viem/chains'
 import type { HexAddress } from '../../domain/types'
 
 export const MARKET_TTL_MS = 5 * 60_000
@@ -11,10 +10,10 @@ const PRICE = /^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/
 // Provider slugs are verified against DEX Screener's own chain navigation.
 // Unmapped networks remain discoverable; their market value is unknown here.
 const CHAIN_SLUGS = new Map<number, string>([
-  [mainnet.id, 'ethereum'], [base.id, 'base'], [arbitrum.id, 'arbitrum'],
-  [bsc.id, 'bsc'], [polygon.id, 'polygon'], [optimism.id, 'optimism'],
-  [avalanche.id, 'avalanche'], [zksync.id, 'zksync'], [unichain.id, 'unichain'],
-  [celo.id, 'celo'], [linea.id, 'linea'], [scroll.id, 'scroll'],
+  [1, 'ethereum'], [8453, 'base'], [42161, 'arbitrum'],
+  [56, 'bsc'], [137, 'polygon'], [10, 'optimism'],
+  [43114, 'avalanche'], [324, 'zksync'], [130, 'unichain'],
+  [42220, 'celo'], [59144, 'linea'], [534352, 'scroll'],
 ])
 
 export interface TokenMarketEvidence {
@@ -65,6 +64,10 @@ function pairUrl(slug: string, pairAddress: HexAddress): string {
 
 export function marketTokenKey(chainId: number, tokenAddress: HexAddress): string {
   return `${chainId}:${tokenAddress.toLowerCase()}`
+}
+
+export function isMarketChainSupported(chainId: number): boolean {
+  return CHAIN_SLUGS.has(chainId)
 }
 
 export function isMarketEvidenceFresh(evidence: TokenMarketEvidence, now = Date.now()): boolean {

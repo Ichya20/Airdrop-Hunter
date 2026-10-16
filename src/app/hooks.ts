@@ -42,10 +42,16 @@ export function useNow(intervalMs: number): [number, () => void] {
   const refresh = useCallback(() => setNow(Date.now()), [])
 
   useEffect(() => {
-    const timer = window.setInterval(refresh, intervalMs)
+    let timer: number | undefined
+    const schedule = () => {
+      window.clearInterval(timer)
+      if (document.visibilityState === 'visible') timer = window.setInterval(refresh, intervalMs)
+    }
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refresh()
+      schedule()
     }
+    schedule()
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
       window.clearInterval(timer)

@@ -15,7 +15,8 @@ import {
   toHexChainId,
   type Eip1193Provider,
 } from '../features/wallet/metamask'
-import { createMemoryStorage, migrateBackupPayload } from '../storage'
+import { createMemoryStorage } from '../storage'
+import { migrateBackupPayload } from '../storage/backupValidation'
 import { buildScanRecordKey, isRecordMatchingIdentity } from '../storage/keys'
 
 const NOW = Date.parse('2026-10-14T12:00:00Z')

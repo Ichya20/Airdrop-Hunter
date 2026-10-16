@@ -582,23 +582,7 @@ function DetailContent({
               <Icon name="chevronLeft" />
               Kembali ke detail
             </button>
-            <button
-              type="button"
-              className="btn btn--primary btn--blocked"
-              aria-disabled="true"
-              aria-describedby="claim-blocked-reason"
-              onClick={() =>
-                setNotice(
-                  'Tidak ada yang dikirim. Klaim testnet dengan simulasi kontrak dan receipt diaktifkan di tahap 5.',
-                )
-              }
-            >
-              <Icon name="send" />
-              Kirim lewat MetaMask
-            </button>
-            <span id="claim-blocked-reason" className="sr-only">
-              Klaim kontrak diaktifkan di tahap 5.
-            </span>
+            <p className="muted small">Klaim kontrak tersedia setelah implementasi tahap 5.</p>
           </div>
         ) : (
           <div className="button-row">

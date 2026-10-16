@@ -2,7 +2,6 @@ import type { SourceMode } from '../adapters/sources'
 import { checkAddressInput } from '../domain/address'
 import type { Campaign, EligibilityResult, Identity, TxRecord } from '../domain/types'
 import { walletAccountKey } from '../features/wallet/identity'
-import { validateBackupPayload, type BackupValidationResult } from './backupValidation'
 import { buildScanRecordKey, isRecordMatchingIdentity } from './keys'
 import {
   STORAGE_DB_NAME,
@@ -46,11 +45,6 @@ export function sanitizeIdentity(raw: unknown): Identity | null {
     return { kind: 'metamask', address: checked.address, chainId: chainIdRaw }
   }
   return null
-}
-
-/** Migrate legacy metadata and validate every stored object before replacing data. */
-export function migrateBackupPayload(raw: unknown): BackupValidationResult {
-  return validateBackupPayload(raw)
 }
 
 export interface LocalStorageAdapter {
@@ -219,7 +213,8 @@ export function createMemoryStorage(): LocalStorageAdapter {
       } catch {
         return { ok: false, message: 'File tidak dapat dibaca sebagai JSON yang valid.' }
       }
-      const migrated = migrateBackupPayload(parsed)
+      const { validateBackupPayload } = await import('./backupValidation')
+      const migrated = validateBackupPayload(parsed)
       if (!migrated.ok) return migrated
 
       const { bundle, migratedFromVersion } = migrated
@@ -446,14 +441,18 @@ export function createBrowserStorage(dbName = STORAGE_DB_NAME): LocalStorageAdap
       if (walletAccountKey(identity) === 'none' || campaigns.length === 0) return matched
       const tx = db.transaction(STORE_SCAN_RECORDS, 'readonly')
       const store = tx.objectStore(STORE_SCAN_RECORDS)
-      for (const campaign of campaigns) {
+      // Queue all reads while the transaction is active, without a serial round trip per campaign.
+      const records = await Promise.all(campaigns.map((campaign) => {
         const key = buildScanRecordKey({
           identity,
           chainId: campaign.chainId,
           campaignId: campaign.id,
           adapterVersion: campaign.adapterVersion,
         })
-        const record = (await reqToPromise(store.get(key))) as StoredScanRecord | undefined
+        return reqToPromise(store.get(key)) as Promise<StoredScanRecord | undefined>
+      }))
+      for (const [index, campaign] of campaigns.entries()) {
+        const record = records[index]
         if (record && isRecordMatchingIdentity(record, identity, campaign)) {
           matched.set(campaign.id, record)
         }
@@ -532,7 +531,8 @@ export function createBrowserStorage(dbName = STORAGE_DB_NAME): LocalStorageAdap
       } catch {
         return { ok: false, message: 'File tidak dapat dibaca sebagai JSON yang valid.' }
       }
-      const migrated = migrateBackupPayload(parsed)
+      const { validateBackupPayload } = await import('./backupValidation')
+      const migrated = validateBackupPayload(parsed)
       if (!migrated.ok) return migrated
       const { bundle, migratedFromVersion } = migrated
 

@@ -1,4 +1,18 @@
 /* ===== Tombol ===== */
+.overlay-loading {
+  position: fixed;
+  z-index: 100;
+  inset: 45% auto auto 50%;
+  transform: translateX(-50%);
+  padding: 1rem 1.5rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.account__section > summary { cursor: pointer; }
+.account__section[open] > summary { margin-bottom: var(--space-3); }
+
 .btn {
   display: inline-flex;
   align-items: center;

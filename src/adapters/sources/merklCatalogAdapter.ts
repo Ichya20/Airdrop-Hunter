@@ -1,6 +1,6 @@
 import { normalizeCampaign } from '../../domain/normalize'
 import type { Campaign } from '../../domain/types'
-import * as evmChains from 'viem/chains'
+import { KNOWN_EVM_CHAINS } from './knownChains'
 import { createSourceRateLimiter, type SourceRateLimiter } from './rateLimit'
 import { delay, SourceError, type SourceAdapter } from './types'
 
@@ -9,10 +9,7 @@ export const MERKL_CATALOG_ADAPTER_VERSION = 'merkl-catalog-1.1.0'
 export const MERKL_OPPORTUNITIES_ENDPOINT = 'https://api.merkl.xyz/v4/opportunities'
 const MERKL_APP_URL = 'https://app.merkl.xyz/'
 const PAGE_SIZE = 100
-const TESTNET_CHAIN_IDS = new Set<number>(Object.values(evmChains).flatMap((chain) => (
-  typeof chain === 'object' && chain !== null && 'testnet' in chain && chain.testnet === true
-    && 'id' in chain && typeof chain.id === 'number' ? [chain.id] : []
-)))
+const TESTNET_CHAIN_IDS = new Set(KNOWN_EVM_CHAINS.filter((chain) => chain.testnet).map((chain) => chain.id))
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

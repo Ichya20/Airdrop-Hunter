@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { CampaignList } from './CampaignList'
 import { CampaignTable } from './CampaignTable'
+import { paginateRows } from './pagination'
 import type { CampaignRow } from './rows'
 import type { OpenHandler } from './RowParts'
+import '../../styles/performance.css'
 
 interface CampaignResultsProps {
   rows: readonly CampaignRow[]
@@ -13,8 +16,35 @@ interface CampaignResultsProps {
   onToggleWatch: (campaignId: string) => void
 }
 
-export function CampaignResults({ tableLayout, sortText, ...shared }: CampaignResultsProps) {
-  return tableLayout ? <CampaignTable {...shared} sortText={sortText} /> : <CampaignList {...shared} />
+export function CampaignResults({ rows, tableLayout, sortText, ...shared }: CampaignResultsProps) {
+  const [pageIndex, setPageIndex] = useState(0)
+  const page = paginateRows(rows, pageIndex)
+
+  // Menghapus item watchlist atau pembaruan scan dapat mengurangi jumlah halaman.
+  if (pageIndex !== page.index) setPageIndex(page.index)
+
+  return (
+    <>
+      {page.pageCount > 1 ? (
+        <nav className="results-pager" aria-label="Halaman hasil campaign">
+          <p className="results-pager__summary" role="status" aria-atomic="true">
+            {page.start}–{page.end} dari {rows.length} campaign · Halaman {page.index + 1} dari {page.pageCount}
+          </p>
+          <div className="results-pager__buttons">
+            <button type="button" className="btn btn--secondary btn--sm" disabled={page.index === 0}
+              onClick={() => setPageIndex(page.index - 1)}>
+              Sebelumnya
+            </button>
+            <button type="button" className="btn btn--secondary btn--sm" disabled={page.index === page.pageCount - 1}
+              onClick={() => setPageIndex(page.index + 1)}>
+              Berikutnya
+            </button>
+          </div>
+        </nav>
+      ) : null}
+      {tableLayout ? <CampaignTable {...shared} rows={page.rows} sortText={sortText} /> : <CampaignList {...shared} rows={page.rows} />}
+    </>
+  )
 }
 
 /** Kerangka saat data pertama dimuat. Disembunyikan dari pembaca layar; progres diumumkan panel scan. */

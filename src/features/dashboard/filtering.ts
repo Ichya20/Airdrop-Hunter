@@ -1,5 +1,5 @@
-import { isEnded, LABEL_META } from '../../domain/status'
-import type { DashboardLabel } from '../../domain/types'
+import { LABEL_META } from '../../domain/status'
+import type { Campaign, DashboardLabel } from '../../domain/types'
 import type { CampaignRow } from './rows'
 
 export type SortKey = 'priority' | 'deadline' | 'name'
@@ -14,6 +14,9 @@ export interface Filters {
 }
 
 export const DEFAULT_FILTERS: Filters = { query: '', label: 'all', chainId: 'all', sort: 'priority' }
+
+const nameCollator = new Intl.Collator('id-ID')
+const searchableText = new WeakMap<Campaign, { name: string; project: string; text: string }>()
 
 /** `text` ringkas untuk pilihan; `caption` untuk keterangan tabel bagi pembaca layar. */
 export const SORT_OPTIONS: readonly { value: SortKey; text: string; caption: string }[] = [
@@ -32,9 +35,17 @@ function fold(value: string): string {
 }
 
 export function matchesQuery(row: CampaignRow, query: string): boolean {
-  const needle = fold(query)
+  return matchesFoldedQuery(row, fold(query))
+}
+
+function matchesFoldedQuery({ campaign }: CampaignRow, needle: string): boolean {
   if (needle === '') return true
-  return fold(`${row.campaign.name} ${row.campaign.project}`).includes(needle)
+  let cached = searchableText.get(campaign)
+  if (!cached || cached.name !== campaign.name || cached.project !== campaign.project) {
+    cached = { name: campaign.name, project: campaign.project, text: fold(`${campaign.name} ${campaign.project}`) }
+    searchableText.set(campaign, cached)
+  }
+  return cached.text.includes(needle)
 }
 
 function matchesChain(row: CampaignRow, chainId: ChainFilter): boolean {
@@ -45,49 +56,40 @@ function matchesLabel(row: CampaignRow, label: LabelFilter): boolean {
   return label === 'all' || row.label === label
 }
 
-/** 0 = tenggat mendatang, 1 = belum diketahui, 2 = sudah lewat/berakhir. */
-function deadlineRank(row: CampaignRow, now: number): number {
-  if (row.campaign.deadline === null) return isEnded(row.campaign, now) ? 2 : 1
-  return isEnded(row.campaign, now) ? 2 : 0
-}
-
-function compareDeadline(a: CampaignRow, b: CampaignRow, now: number): number {
-  const rankDiff = deadlineRank(a, now) - deadlineRank(b, now)
-  if (rankDiff !== 0) return rankDiff
-  const timeA = a.campaign.deadline === null ? 0 : Date.parse(a.campaign.deadline)
-  const timeB = b.campaign.deadline === null ? 0 : Date.parse(b.campaign.deadline)
-  // Mendatang: terdekat dulu. Sudah lewat: yang paling baru berakhir dulu.
-  return deadlineRank(a, now) === 2 ? timeB - timeA : timeA - timeB
-}
-
 function compareName(a: CampaignRow, b: CampaignRow): number {
-  return a.campaign.name.localeCompare(b.campaign.name, 'id-ID')
+  return nameCollator.compare(a.campaign.name, b.campaign.name)
 }
 
 export function sortRows(rows: readonly CampaignRow[], sort: SortKey, now: number): CampaignRow[] {
-  return [...rows].sort((a, b) => {
-    if (sort === 'name') return compareName(a, b)
-    if (sort === 'deadline') return compareDeadline(a, b, now) || compareName(a, b)
-    return (
-      LABEL_META[a.label].priority - LABEL_META[b.label].priority ||
-      compareDeadline(a, b, now) ||
-      compareName(a, b)
-    )
-  })
+  if (sort === 'name') return [...rows].sort(compareName)
+  // Parse satu kali per campaign, bukan berulang di setiap perbandingan sort.
+  return rows.map((row) => {
+    const time = row.campaign.deadline === null ? 0 : Date.parse(row.campaign.deadline)
+    const ended = row.campaign.status === 'ended' || (row.campaign.deadline !== null && Number.isFinite(time) && time <= now)
+    // 0 = mendatang, 1 = belum diketahui, 2 = lewat/berakhir.
+    const rank = ended ? 2 : row.campaign.deadline === null ? 1 : 0
+    return { row, time, rank, priority: LABEL_META[row.label].priority }
+  }).sort((a, b) => {
+    const priority = sort === 'priority' ? a.priority - b.priority : 0
+    const deadline = a.rank - b.rank || (a.rank === 2 ? b.time - a.time : a.time - b.time)
+    return priority || deadline || compareName(a.row, b.row)
+  }).map(({ row }) => row)
 }
 
 export function applyFilters(rows: readonly CampaignRow[], filters: Filters, now: number): CampaignRow[] {
+  const needle = fold(filters.query)
   const filtered = rows.filter(
     (row) =>
-      matchesQuery(row, filters.query) &&
       matchesChain(row, filters.chainId) &&
-      matchesLabel(row, filters.label),
+      matchesLabel(row, filters.label) &&
+      matchesFoldedQuery(row, needle),
   )
   return sortRows(filtered, filters.sort, now)
 }
 
 /** Jumlah per label dengan filter pencarian + jaringan diterapkan (filter status diabaikan). */
 export function countByLabel(rows: readonly CampaignRow[], filters: Filters): Record<LabelFilter, number> {
+  const needle = fold(filters.query)
   const counts: Record<LabelFilter, number> = {
     all: 0,
     ready: 0,
@@ -98,7 +100,7 @@ export function countByLabel(rows: readonly CampaignRow[], filters: Filters): Re
     ended: 0,
   }
   for (const row of rows) {
-    if (!matchesQuery(row, filters.query) || !matchesChain(row, filters.chainId)) continue
+    if (!matchesChain(row, filters.chainId) || !matchesFoldedQuery(row, needle)) continue
     counts.all += 1
     counts[row.label] += 1
   }
@@ -114,6 +116,7 @@ export interface NetworkOption {
 
 /** Opsi jaringan yang benar-benar ada di data, dengan jumlah mengikuti pencarian + status. */
 export function networkOptions(rows: readonly CampaignRow[], filters: Filters): NetworkOption[] {
+  const needle = fold(filters.query)
   const byChain = new Map<number, NetworkOption>()
   for (const row of rows) {
     const option = byChain.get(row.campaign.chainId) ?? {
@@ -122,11 +125,11 @@ export function networkOptions(rows: readonly CampaignRow[], filters: Filters): 
       testnet: row.network.testnet,
       count: 0,
     }
-    if (matchesQuery(row, filters.query) && matchesLabel(row, filters.label)) option.count += 1
+    if (matchesLabel(row, filters.label) && matchesFoldedQuery(row, needle)) option.count += 1
     byChain.set(row.campaign.chainId, option)
   }
   return [...byChain.values()].sort(
-    (a, b) => Number(a.testnet) - Number(b.testnet) || a.name.localeCompare(b.name, 'id-ID'),
+    (a, b) => Number(a.testnet) - Number(b.testnet) || nameCollator.compare(a.name, b.name),
   )
 }
 

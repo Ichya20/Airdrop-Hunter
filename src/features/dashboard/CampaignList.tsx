@@ -12,10 +12,10 @@ interface CampaignListProps {
   onToggleWatch: (campaignId: string) => void
 }
 
-/** Daftar ringkas untuk layar < 1024 px. Seluruh kartu dapat disentuh untuk membuka detail. */
+/** Daftar ringkas untuk layar < 1024 px, dengan tombol nama dan aksi untuk membuka detail. */
 export function CampaignList({ rows, identityLabel, now, onOpen, onToggleWatch }: CampaignListProps) {
   return (
-    <ul className="clist" aria-label={`Campaign DEMO untuk ${identityLabel}`}>
+    <ul className="clist" aria-label={`Campaign untuk ${identityLabel}`}>
       {rows.map((row) => {
         const { campaign } = row
         return (

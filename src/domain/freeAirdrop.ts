@@ -1,6 +1,6 @@
 import { isMarketEvidenceFresh, type TokenMarketEvidence } from '../adapters/market'
 import type { WalletReward } from '../adapters/rewards/merkl'
-import * as evmChains from 'viem/chains'
+import { KNOWN_EVM_CHAINS } from '../adapters/sources/knownChains'
 
 export interface FreeRewardAssessment {
   status: 'market_candidate' | 'not_qualifying' | 'unknown'
@@ -10,11 +10,7 @@ export interface FreeRewardAssessment {
 type RewardCandidate = Pick<WalletReward, 'chainId' | 'tokenAddress' | 'assetType' | 'isTest' | 'claimable'>
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/
 const UINT256_MAX = (1n << 256n) - 1n
-const TESTNET_IDS = new Set<number>()
-for (const chain of Object.values(evmChains)) {
-  if (typeof chain === 'object' && chain !== null && 'id' in chain && typeof chain.id === 'number'
-    && 'testnet' in chain && chain.testnet === true) TESTNET_IDS.add(chain.id)
-}
+const TESTNET_IDS = new Set(KNOWN_EVM_CHAINS.filter((chain) => chain.testnet).map((chain) => chain.id))
 
 export function isRewardTestnet(chainId: number): boolean {
   return TESTNET_IDS.has(chainId)

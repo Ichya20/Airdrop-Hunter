@@ -25,10 +25,11 @@ function assetName(reward: WalletReward): string {
 
 export function WalletRewardsPanel({ identity, rewards, now }: Props) {
   const address = identityAddress(identity)
+  const [expanded, setExpanded] = useState(false)
   const [page, setPage] = useState(0)
   const pages = Math.max(1, Math.ceil(rewards.rewards.length / 100))
   const currentPage = Math.min(page, pages - 1)
-  const visible = rewards.rewards.slice(currentPage * 100, (currentPage + 1) * 100)
+  const visible = expanded ? rewards.rewards.slice(currentPage * 100, (currentPage + 1) * 100) : []
   const marketFor = (reward: WalletReward) => {
     const evidence = rewards.markets.get(marketTokenKey(reward.chainId, reward.tokenAddress))
     return evidence?.chainId === reward.chainId && evidence.tokenAddress.toLowerCase() === reward.tokenAddress.toLowerCase() ? evidence : null
@@ -42,21 +43,20 @@ export function WalletRewardsPanel({ identity, rewards, now }: Props) {
           <Icon name="refresh" />{rewards.status === 'loading' ? 'Memeriksa…' : 'Periksa ulang'}
         </button>
       </div>
-      <p>Semua token dan jaringan yang dikembalikan API Merkl untuk alamat ini, tanpa daftar koin pilihan. Hasil API belum merupakan verifikasi kontrak atau bukti token masuk wallet.</p>
-      <p className="notice notice--block"><Icon name="info" /><span>Distribusi token gratis; gas jaringan dapat dibayar pengguna. Token harus punya jumlah yang bisa diklaim serta harga dan likuiditas pasar. Poin, pre-TGE, dan testnet tidak memenuhi kriteria. Klaim dalam aplikasi belum aktif.</span></p>
+      <p>Data API Merkl dapat tertunda; belum memverifikasi kontrak atau token masuk wallet. Nilai pasar hanya indikasi, gas dapat diperlukan. Klaim dalam aplikasi belum aktif.</p>
       <div role="status" aria-live="polite">
-        {!address ? <p>Pilih alamat pantau atau MetaMask untuk memeriksa reward nyata. Akun DEMO tidak mengirim permintaan wallet.</p> : null}
+        {!address ? <p>Pilih alamat pantau atau MetaMask untuk memeriksa reward.</p> : null}
         {address && rewards.status === 'idle' ? <p>Reward alamat ini belum diperiksa.</p> : null}
         {rewards.status === 'loading' ? <p>Memeriksa reward semua jaringan Merkl…</p> : null}
         {rewards.status === 'error' ? <p>{rewards.error} Hasil gagal tidak berarti saldo reward nol.</p> : null}
-        {rewards.status === 'success' ? <p>{rewards.rewards.length} entri dilaporkan API · diperiksa {rewards.checkedAt ? new Date(rewards.checkedAt).toLocaleString('id-ID') : '—'}. Data API dapat tertunda setelah klaim.</p> : null}
+        {rewards.status === 'success' ? <p>{rewards.rewards.length} entri API · diperiksa {rewards.checkedAt ? new Date(rewards.checkedAt).toLocaleString('id-ID') : '—'}.</p> : null}
         {rewards.marketStatus === 'loading' ? <p>Memeriksa nilai pasar {rewards.marketCompleted} dari {rewards.marketTotal} token…</p> : null}
-        {rewards.status === 'success' && rewards.rewards.length > 0 ? <p>{candidates} kandidat memiliki laporan jumlah belum diklaim serta harga dan likuiditas pasar yang masih segar. Periksa hak klaim di sumber resmi; ini belum bukti token sudah masuk wallet atau jaminan hasil penjualan.</p> : null}
-        {rewards.status === 'success' && rewards.rewards.length === 0 ? <p>API Merkl tidak melaporkan reward untuk alamat ini. Ini tidak mencakup seluruh airdrop di luar Merkl.</p> : null}
+        {rewards.status === 'success' && rewards.rewards.length > 0 ? <p>{candidates} kandidat dengan jumlah belum diklaim serta harga dan likuiditas pasar segar. Periksa hak klaim di sumber resmi.</p> : null}
+        {rewards.status === 'success' && rewards.rewards.length === 0 ? <p>Merkl tidak melaporkan reward untuk alamat ini; sumber lain belum tercakup.</p> : null}
       </div>
-      {visible.length > 0 ? <details className="wallet-rewards__entries">
+      {rewards.rewards.length > 0 ? <details className="wallet-rewards__entries" open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
         <summary>Tampilkan {rewards.rewards.length} entri reward wallet</summary>
-        <div className="table-wrap wallet-rewards__table" tabIndex={0} role="region" aria-label="Reward wallet menurut API Merkl">
+        {expanded ? <div className="table-wrap wallet-rewards__table" tabIndex={0} role="region" aria-label="Reward wallet menurut API Merkl">
           <table className="ctable">
             <thead><tr><th scope="col">Aset / jaringan</th><th scope="col">Belum diklaim menurut API</th><th scope="col">Pending · belum bisa diklaim</th><th scope="col">Nilai pasar</th><th scope="col">Kriteria free</th><th scope="col">Gas</th></tr></thead>
             <tbody>{visible.map((reward) => {
@@ -74,8 +74,8 @@ export function WalletRewardsPanel({ identity, rewards, now }: Props) {
               )
             })}</tbody>
           </table>
-        </div>
-      {pages > 1 ? <nav className="button-row" aria-label="Halaman reward wallet">
+        </div> : null}
+      {expanded && pages > 1 ? <nav className="button-row" aria-label="Halaman reward wallet">
         <button type="button" className="btn btn--secondary btn--sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Sebelumnya</button>
         <span>Halaman {currentPage + 1} dari {pages} · seluruh {rewards.rewards.length} entri tersedia</span>
         <button type="button" className="btn btn--secondary btn--sm" disabled={currentPage === pages - 1} onClick={() => setPage(currentPage + 1)}>Berikutnya</button>

@@ -107,7 +107,7 @@ export function FilterBar({ filters, onChange, counts, networks }: FilterBarProp
 
       <fieldset className="chips">
         <legend className="sr-only">Filter status untuk wallet</legend>
-        {STATUS_VALUES.map((value) => {
+        {STATUS_VALUES.filter((value) => value === 'all' || value === filters.label || counts[value] > 0).map((value) => {
           const checked = filters.label === value
           const tone = value === 'all' ? 'all' : LABEL_META[value].tone
           return (

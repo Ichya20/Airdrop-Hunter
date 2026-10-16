@@ -4,10 +4,22 @@ import { isRecordMatchingIdentity } from '../../storage/keys'
 import type { StoredScanRecord } from '../../storage/types'
 import { isAddress } from 'viem'
 import type { EligibilityAdapter, EligibilityCheckOptions } from './types'
-import { createUniEligibilityAdapter } from './uni'
+import type { UniEligibilityDependencies } from './uni'
+import { UNI_ELIGIBILITY_RULE, UNI_ELIGIBILITY_SOURCE, supportsUniEligibility } from './uniMetadata'
 
 export type { EligibilityAdapter, EligibilityCheckOptions } from './types'
-export { createUniEligibilityAdapter } from './uni'
+/** RPC dan ABI hanya dimuat ketika pemeriksaan UNI benar-benar diminta. */
+export function createUniEligibilityAdapter(overrides: Partial<UniEligibilityDependencies> = {}): EligibilityAdapter {
+  return {
+    rule: UNI_ELIGIBILITY_RULE,
+    source: UNI_ELIGIBILITY_SOURCE,
+    supports: supportsUniEligibility,
+    async checkEligibility(campaign, identity, options) {
+      const { createUniEligibilityAdapter: createAdapter } = await import('./uni')
+      return createAdapter(overrides).checkEligibility(campaign, identity, options)
+    },
+  }
+}
 
 export const ELIGIBILITY_TTL_MS = 5 * 60 * 1000
 

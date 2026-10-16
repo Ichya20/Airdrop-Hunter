@@ -1,6 +1,6 @@
 import { normalizeCampaign, type RawCampaign } from '../../domain/normalize'
 import type { Campaign } from '../../domain/types'
-import * as evmChains from 'viem/chains'
+import { KNOWN_EVM_CHAINS } from './knownChains'
 import {
   createSourceRateLimiter,
   type SourceRateLimiter,
@@ -18,12 +18,10 @@ function chainKey(name: string): string {
 /** Nama dan export resmi viem, ditambah alias penamaan jaringan DefiLlama. */
 const DEFILLAMA_CHAIN_TO_ID = new Map<string, number>()
 const DEFILLAMA_TESTNET_CHAIN_IDS = new Set<number>()
-for (const [exportName, chain] of Object.entries(evmChains)) {
-  if (typeof chain !== 'object' || chain === null || !('id' in chain) || !('name' in chain)) continue
-  if (typeof chain.id !== 'number' || typeof chain.name !== 'string') continue
-  DEFILLAMA_CHAIN_TO_ID.set(chainKey(exportName), chain.id)
+for (const chain of KNOWN_EVM_CHAINS) {
+  DEFILLAMA_CHAIN_TO_ID.set(chainKey(chain.exportName), chain.id)
   DEFILLAMA_CHAIN_TO_ID.set(chainKey(chain.name), chain.id)
-  if ('testnet' in chain && chain.testnet === true) DEFILLAMA_TESTNET_CHAIN_IDS.add(chain.id)
+  if (chain.testnet) DEFILLAMA_TESTNET_CHAIN_IDS.add(chain.id)
 }
 for (const [name, id] of Object.entries({
   Ethereum: 1, Optimism: 10, 'OP Mainnet': 10, Polygon: 137, 'Polygon PoS': 137,

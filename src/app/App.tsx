@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createSourceAdapters, type SourceMode } from '../adapters/sources'
 import { shortenAddress } from '../domain/address'
 import type { HexAddress, Identity } from '../domain/types'
@@ -8,7 +8,6 @@ import {
   type DemoScenario,
 } from '../demo/demoSources'
 import { useEligibility } from '../features/eligibility/useEligibility'
-import { CampaignDrawer } from '../features/dashboard/CampaignDrawer'
 import { DashboardView } from '../features/dashboard/DashboardView'
 import type { DetailRequest, OpenIntent } from '../features/dashboard/intent'
 import { buildRows } from '../features/dashboard/rows'
@@ -17,7 +16,6 @@ import { WatchlistView } from '../features/dashboard/WatchlistView'
 import { SCAN_TTL_MS, useScanner } from '../features/scanner/useScanner'
 import { useWalletRewards } from '../features/rewards/useWalletRewards'
 import { WalletRewardsPanel } from '../features/rewards/WalletRewardsPanel'
-import { AccountDialog } from '../features/wallet/AccountDialog'
 import { identityKey, walletAccountKey } from '../features/wallet/identity'
 import { useMetaMaskWallet } from '../features/wallet/useMetaMaskWallet'
 import { createBrowserStorage } from '../storage'
@@ -28,12 +26,17 @@ import { useHashRoute, useMediaQuery, useNow } from './hooks'
 import { BottomBar, Sidebar } from './Navigation'
 
 const TITLES = { dashboard: 'Dashboard', watchlist: 'Watchlist' } as const
+const CampaignDrawer = lazy(() => import('../features/dashboard/CampaignDrawer').then((module) => ({ default: module.CampaignDrawer })))
+const AccountDialog = lazy(() => import('../features/wallet/AccountDialog').then((module) => ({ default: module.AccountDialog })))
+const EMPTY_WATCHLIST: string[] = []
 
 export function App() {
   const route = useHashRoute()
   const isDesktop = useMediaQuery('(min-width: 64rem)')
   const tableLayout = useMediaQuery('(min-width: 75rem)')
   const [now, refreshNow] = useNow(30_000)
+  // Skenario pengujian dibuka secara eksplisit; alur harian hanya memakai sumber live.
+  const [demoTools] = useState(() => new URLSearchParams(window.location.search).has('skenario'))
 
   const storage = useMemo(() => createBrowserStorage(), [])
 
@@ -42,7 +45,7 @@ export function App() {
     return { store, ...createSourceAdapters(store.get) }
   })
   const [scenario, setScenario] = useState<DemoScenario>(() => sourceRegistry.store.get())
-  const [sourceMode, setSourceMode] = useState<SourceMode>('all')
+  const [sourceMode, setSourceMode] = useState<SourceMode>(demoTools ? 'demo' : 'live')
   const [hydrated, setHydrated] = useState(false)
 
   const enabledSourceIds = useMemo(() => {
@@ -57,7 +60,7 @@ export function App() {
     [sourceRegistry.allAdapters],
   )
 
-  const [identity, setIdentity] = useState<Identity>({ kind: 'demo' })
+  const [identity, setIdentity] = useState<Identity>({ kind: demoTools ? 'demo' : 'none' })
   const [watchlists, setWatchlists] = useState<Record<string, string[]>>({})
   const [storageBusy, setStorageBusy] = useState(false)
   const [dataEpoch, setDataEpoch] = useState(0)
@@ -67,10 +70,11 @@ export function App() {
   const [announcement, setAnnouncement] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
   const mainRef = useRef<HTMLElement>(null)
+  const announcementTimer = useRef<number | undefined>(undefined)
   const walletRewards = useWalletRewards({
     identity,
     scanKey: `${sourceMode}:${scanner.state.finishedAt ?? 'initial'}:${dataEpoch}`,
-    enabled: hydrated && !storageBusy && sourceMode !== 'demo',
+    enabled: hydrated && !storageBusy && !scanner.isRunning && sourceMode !== 'demo',
   })
   const cancelWalletRewards = walletRewards.cancel
   const detailCampaign = detail ? scanner.campaigns.find((campaign) => campaign.id === detail.campaignId) ?? null : null
@@ -82,9 +86,11 @@ export function App() {
   useEffect(() => { refreshNow() }, [markets, refreshNow])
 
   const announce = useCallback((message: string) => {
+    window.clearTimeout(announcementTimer.current)
     setAnnouncement('')
-    window.setTimeout(() => setAnnouncement(message), 80)
+    announcementTimer.current = window.setTimeout(() => setAnnouncement(message), 80)
   }, [])
+  useEffect(() => () => window.clearTimeout(announcementTimer.current), [])
 
   const refreshStorageStats = useCallback(async () => {
     try {
@@ -97,8 +103,7 @@ export function App() {
 
   const onEligibilitySaved = useCallback(async () => {
     refreshNow()
-    await refreshStorageStats()
-  }, [refreshNow, refreshStorageStats])
+  }, [refreshNow])
   const { records: cachedRecords, pendingIds: eligibilityPendingIds, recheck: recheckEligibility, invalidate: invalidateEligibility } = useEligibility({
     storage,
     identity,
@@ -119,8 +124,8 @@ export function App() {
         ])
         if (!active) return
         if (savedSettings) {
-          setIdentity(savedSettings.identity)
-          if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
+          setIdentity(!demoTools && savedSettings.identity.kind === 'demo' ? { kind: 'none' } : savedSettings.identity)
+          if (!demoTools) setSourceMode('live')
           const urlHasScenario = new URLSearchParams(window.location.search).has('skenario')
           if (!urlHasScenario) {
             sourceRegistry.store.set(savedSettings.scenario)
@@ -141,7 +146,7 @@ export function App() {
     return () => {
       active = false
     }
-  }, [storage, sourceRegistry.store, hydrateCheckpoints, refreshStorageStats, announce])
+  }, [storage, sourceRegistry.store, hydrateCheckpoints, refreshStorageStats, announce, demoTools])
 
   useEffect(() => {
     if (!hydrated) return
@@ -152,11 +157,11 @@ export function App() {
         sourceMode,
         scanTtlMs: SCAN_TTL_MS,
       })
-      .then(() => refreshStorageStats())
-  }, [hydrated, identity, scenario, sourceMode, storage, refreshStorageStats])
+      .catch(() => announce('Pengaturan belum tersimpan. Penyimpanan browser mungkin penuh.'))
+  }, [hydrated, identity, scenario, sourceMode, storage, announce])
 
   useEffect(() => {
-    if (!hydrated || scanner.state.finishedAt === null) return
+    if (!hydrated || scanner.isRunning || scanner.state.finishedAt === null) return
     const checkpoints = scanner.state.sources
       .filter((s) => s.lastSuccessAt !== null)
       .map((s) => ({
@@ -167,9 +172,9 @@ export function App() {
         updatedAt: scanner.state.finishedAt ?? new Date().toISOString(),
       }))
     if (checkpoints.length > 0) {
-      void storage.saveSourceCheckpoints(checkpoints).then(() => refreshStorageStats())
+      void storage.saveSourceCheckpoints(checkpoints).catch(() => announce('Hasil scan belum tersimpan. Data masih tersedia di tab ini.'))
     }
-  }, [hydrated, scanner.state.finishedAt, scanner.state.sources, storage, refreshStorageStats])
+  }, [hydrated, scanner.isRunning, scanner.state.finishedAt, scanner.state.sources, storage, announce])
 
   const changeIdentity = useCallback(
     (next: Identity, message: string) => {
@@ -193,7 +198,7 @@ export function App() {
   })
 
   const accountKey = walletAccountKey(identity)
-  const watchedIds = useMemo(() => watchlists[accountKey] ?? [], [watchlists, accountKey])
+  const watchedIds = useMemo(() => watchlists[accountKey] ?? EMPTY_WATCHLIST, [watchlists, accountKey])
   const watched = useMemo(() => new Set(watchedIds), [watchedIds])
   const rows = useMemo(
     () => buildRows(scanner.campaigns, identity, now, scanner.staleSourceIds, watched, cachedRecords, markets),
@@ -226,18 +231,25 @@ export function App() {
 
   const toggleWatch = useCallback(
     (campaignId: string) => {
-      if (accountKey === 'none') return
+      if (accountKey === 'none') {
+        setDetail(null)
+        setAccountOpen(true)
+        void refreshStorageStats()
+        announce('Pilih akun atau alamat pantau untuk menyimpan watchlist.')
+        return
+      }
       setWatchlists((previous) => {
         const list = previous[accountKey] ?? []
         const next = list.includes(campaignId) ? list.filter((id) => id !== campaignId) : [...list, campaignId]
-        void storage.saveWatchlist(identity, next).then(() => refreshStorageStats())
+        void storage.saveWatchlist(identity, next).catch(() => announce('Watchlist belum tersimpan. Coba lagi setelah ruang penyimpanan tersedia.'))
         return { ...previous, [accountKey]: next }
       })
     },
-    [accountKey, identity, storage, refreshStorageStats],
+    [accountKey, identity, storage, announce, refreshStorageStats],
   )
 
   const openDetail = useCallback((campaignId: string, intent: OpenIntent) => {
+    setAccountOpen(false)
     const campaign = scanner.campaigns.find((item) => item.id === campaignId)
     if (campaign) void recheckEligibility(campaign)
     setDetail({ campaignId, ...intent })
@@ -277,13 +289,13 @@ export function App() {
             storage.loadSourceCheckpoints(),
           ])
           if (savedSettings) {
-            setIdentity(savedSettings.identity)
-            if (savedSettings.sourceMode) setSourceMode(savedSettings.sourceMode)
+            setIdentity(!demoTools && savedSettings.identity.kind === 'demo' ? { kind: 'none' } : savedSettings.identity)
+            setSourceMode(demoTools ? (savedSettings.sourceMode ?? 'demo') : 'live')
             sourceRegistry.store.set(savedSettings.scenario)
             setScenario(savedSettings.scenario)
           } else {
-            setIdentity({ kind: 'demo' })
-            setSourceMode('all')
+            setIdentity({ kind: demoTools ? 'demo' : 'none' })
+            setSourceMode(demoTools ? 'demo' : 'live')
             sourceRegistry.store.set('normal')
             setScenario('normal')
           }
@@ -298,7 +310,7 @@ export function App() {
         setStorageBusy(false)
       }
     },
-    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce, invalidateEligibility, cancelWalletRewards],
+    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce, invalidateEligibility, cancelWalletRewards, demoTools],
   )
 
   const handleClearStorage = useCallback(async () => {
@@ -340,7 +352,7 @@ export function App() {
           isDesktop={isDesktop}
           sourceMode={sourceMode}
           onScan={startScan}
-          onOpenAccount={() => setAccountOpen(true)}
+          onOpenAccount={() => { setDetail(null); setAccountOpen(true); void refreshStorageStats() }}
         />
         <div className="app__body">
           {isDesktop ? <Sidebar route={route} counts={counts} /> : null}
@@ -349,12 +361,13 @@ export function App() {
               sourceMode={sourceMode}
               scenario={scenario}
               compact={!isDesktop}
+              showControls={demoTools}
               onSourceModeChange={handleSourceModeChange}
               onScenarioChange={handleScenarioChange}
             />
             {route === 'dashboard' ? (
               <DashboardView
-                walletRewardsPanel={sourceMode !== 'demo' ? <WalletRewardsPanel key={identityKey(identity)} identity={identity} rewards={walletRewards} now={now} /> : null}
+                walletRewardsPanel={sourceMode !== 'demo' && (identity.kind === 'watch' || identity.kind === 'metamask') ? <WalletRewardsPanel key={identityKey(identity)} identity={identity} rewards={walletRewards} now={now} /> : null}
                 rows={rows}
                 scanner={scanner}
                 identity={identity}
@@ -365,7 +378,7 @@ export function App() {
                 onOpen={openDetail}
                 onToggleWatch={toggleWatch}
                 onScan={startScan}
-                onOpenAccount={() => setAccountOpen(true)}
+                onOpenAccount={() => { setDetail(null); setAccountOpen(true); void refreshStorageStats() }}
                 onSwitchNetwork={wallet.switchNetwork}
                 announce={announce}
               />
@@ -387,7 +400,8 @@ export function App() {
         {isDesktop ? null : <BottomBar route={route} counts={counts} scanner={scanner} onScan={startScan} />}
       </div>
 
-      <CampaignDrawer
+      <Suspense fallback={<p className="overlay-loading" role="status">Memuat panel…</p>}>
+      {detail ? <CampaignDrawer
         request={detail}
         row={detailRow}
         identity={identity}
@@ -400,13 +414,14 @@ export function App() {
         onRecheckEligibility={async (campaign, proofJson) => {
           await Promise.all([recheckEligibility(campaign, proofJson), detailMarket.refresh()])
         }}
-      />
+      /> : null}
 
-      <AccountDialog
+      {accountOpen ? <AccountDialog
         open={accountOpen}
         identity={identity}
         wallet={wallet}
         storageStats={storageStats}
+        allowDemo={demoTools}
         onClose={() => setAccountOpen(false)}
         onSelectDemo={() => changeIdentity({ kind: 'demo' }, 'Akun DEMO aktif. Status dihitung ulang dari fixture.')}
         onWatch={(address: HexAddress) =>
@@ -419,7 +434,8 @@ export function App() {
         onExportBackup={handleExportBackup}
         onImportBackup={handleImportBackup}
         onClearStorage={handleClearStorage}
-      />
+      /> : null}
+      </Suspense>
 
       <p className="sr-only" role="status" aria-live="polite">
         {announcement}

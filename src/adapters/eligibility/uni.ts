@@ -1,14 +1,10 @@
 import { concatHex, createPublicClient, encodePacked, http, isAddress, keccak256, type Hex } from 'viem'
 import { mainnet } from 'viem/chains'
-import type { Campaign, EligibilityResult, HexAddress } from '../../domain/types'
+import type { EligibilityResult, HexAddress } from '../../domain/types'
 import type { EligibilityAdapter } from './types'
 
-export const UNI_ELIGIBILITY_RULE = 'uni-mainnet-merkle-1'
-export const UNI_CAMPAIGN_ID = '1:uniswap:uniswap-governance-token-distribution-uni'
-export const UNI_DISTRIBUTOR: HexAddress = '0x090D4613473dEE047c3f2706764f49E0821D256e'
-export const UNI_TOKEN: HexAddress = '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984'
-export const UNI_ELIGIBILITY_SOURCE =
-  `https://github.com/Uniswap/merkle-distributor | Ethereum (1) | distributor ${UNI_DISTRIBUTOR}`
+import { UNI_DISTRIBUTOR, UNI_ELIGIBILITY_RULE, UNI_ELIGIBILITY_SOURCE, UNI_TOKEN, supportsUniEligibility } from './uniMetadata'
+export { UNI_CAMPAIGN_ID, UNI_DISTRIBUTOR, UNI_ELIGIBILITY_RULE, UNI_ELIGIBILITY_SOURCE, UNI_TOKEN, supportsUniEligibility } from './uniMetadata'
 
 const REQUEST_TIMEOUT_MS = 8_000
 const MAX_PROOF_BYTES = 32 * 1024
@@ -38,16 +34,6 @@ export interface UniDistributorState {
 export interface UniEligibilityDependencies {
   readState(input: { index: bigint; signal: AbortSignal }): Promise<UniDistributorState>
   now(): number
-}
-
-/** Hanya arsip UNI yang dikenal; URL atau kontrak dari feed lain tidak dieksekusi. */
-export function supportsUniEligibility(campaign: Campaign): boolean {
-  return campaign.origin === 'live' &&
-    campaign.id === UNI_CAMPAIGN_ID &&
-    campaign.chainId === 1 &&
-    campaign.contract?.chainId === 1 &&
-    typeof campaign.contract.address === 'string' &&
-    campaign.contract.address.toLowerCase() === UNI_DISTRIBUTOR.toLowerCase()
 }
 
 function parseUint256(value: unknown, allowNumber: boolean): bigint | null {

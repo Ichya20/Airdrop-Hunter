@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import type { Campaign, EligibilityResult, HexAddress, Identity, TxRecord } from '../domain/types'
-import { createMemoryStorage, migrateBackupPayload } from '../storage'
+import { createMemoryStorage } from '../storage'
+import { migrateBackupPayload } from '../storage/backupValidation'
 import type { StorageBackupBundle } from '../storage/types'
 
 const WALLET: HexAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'

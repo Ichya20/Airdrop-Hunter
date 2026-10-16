@@ -4,7 +4,9 @@ import {
   simplifiedChinese, spanish, traditionalChinese,
 } from 'viem/accounts'
 import type { Campaign, HexAddress, Identity } from '../domain/types'
-import { createMemoryStorage, migrateBackupPayload } from '../storage'
+import { createBrowserStorage, createMemoryStorage } from '../storage'
+import { migrateBackupPayload } from '../storage/backupValidation'
+import { buildScanRecordKey } from '../storage/keys'
 import type { StorageBackupBundle } from '../storage/types'
 
 const NOW = '2026-10-14T12:00:00.000Z'
@@ -67,6 +69,54 @@ export async function runCleanupStorageTests(): Promise<{ passed: number; detail
     assert.equal(records.get(makeCampaign().id)?.tx?.proof, HASH)
     assert.deepEqual(await restored.loadWatchlist(ACCOUNT), [makeCampaign().id])
     assert.deepEqual(await restored.loadSourceCheckpoints(), backup.sourceCheckpoints)
+  })
+
+  await step('Storage: pembacaan IndexedDB dibatch dan tetap menolak record akun atau versi lain', async () => {
+    const backup = await makeBackup()
+    const template = backup.scanRecords[0]
+    const campaigns = Array.from({ length: 4 }, (_, index) => ({ ...makeCampaign(), id: `42161:batch:${index}` }))
+    const stored = new Map(campaigns.map((campaign) => {
+      const key = buildScanRecordKey({ identity: ACCOUNT, chainId: campaign.chainId,
+        campaignId: campaign.id, adapterVersion: campaign.adapterVersion })
+      return [key, { ...template, key, campaignId: campaign.id, campaign }]
+    }))
+    stored.get([...stored.keys()][1])!.addressScope = 'watch:0x1111111111111111111111111111111111111111'
+    stored.get([...stored.keys()][2])!.adapterVersion = 'different-version'
+    stored.delete([...stored.keys()][3])
+    let pending = 0
+    let maxPending = 0
+    const db = {
+      transaction: () => ({ objectStore: () => ({ get: (key: string) => {
+        const request = {} as IDBRequest
+        pending += 1
+        maxPending = Math.max(maxPending, pending)
+        queueMicrotask(() => {
+          pending -= 1
+          Object.assign(request, { result: stored.get(key) })
+          request.onsuccess?.(new Event('success'))
+        })
+        return request
+      } }) }),
+    }
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { indexedDB: { open: () => {
+      const request = {} as IDBOpenDBRequest
+      queueMicrotask(() => {
+        Object.assign(request, { result: db })
+        request.onsuccess?.(new Event('success'))
+      })
+      return request
+    } } } })
+    try {
+      const storage = createBrowserStorage('batch-read-test')
+      const records = await storage.loadScanRecordsForIdentity(ACCOUNT, campaigns)
+      assert.equal(maxPending, campaigns.length, 'Seluruh get harus masuk antrean sebelum menunggu hasil')
+      assert.deepEqual([...records.keys()], [campaigns[0].id])
+      assert.equal((await storage.loadScanRecordsForIdentity({ kind: 'none' }, campaigns)).size, 0)
+    } finally {
+      if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+      else Reflect.deleteProperty(globalThis, 'window')
+    }
   })
 
   await step('Backup: long source prose, archive metadata, and old checkpoints remain valid', async () => {

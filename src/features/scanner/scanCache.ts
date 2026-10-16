@@ -1,4 +1,19 @@
 import type { SourceAdapter } from '../../adapters/sources/types'
+import { mergeCampaigns } from '../../domain/normalize'
+import type { Campaign } from '../../domain/types'
+
+/** Pembaruan progres tidak mengubah daftar campaign yang telah dinormalisasi. */
+export function createCampaignSelector() {
+  let previous: readonly (readonly Campaign[])[] = []
+  let merged: Campaign[] = []
+  return (sources: readonly { campaigns: readonly Campaign[] }[]): Campaign[] => {
+    const inputs = sources.map((source) => source.campaigns)
+    if (inputs.length === previous.length && inputs.every((input, index) => input === previous[index])) return merged
+    previous = inputs
+    merged = mergeCampaigns(inputs.flat())
+    return merged
+  }
+}
 
 interface SourceFreshness {
   id: string

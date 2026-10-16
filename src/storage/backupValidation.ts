@@ -37,6 +37,9 @@ function resemblesMnemonic(value: string): boolean {
 
 class BackupValidationError extends Error {}
 
+/** Synchronous migration remains available to callers that explicitly load backup validation. */
+export { validateBackupPayload as migrateBackupPayload }
+
 function invalid(path: string, reason: string): never {
   throw new BackupValidationError(`Cadangan tidak valid pada ${path}: ${reason}.`)
 }

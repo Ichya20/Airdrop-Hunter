@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
-import { fetchTokenMarket, marketTokenKey, type TokenMarketEvidence } from '../../adapters/market'
+import { fetchTokenMarket, isMarketEvidenceFresh, marketTokenKey, type TokenMarketEvidence } from '../../adapters/market'
 import type { Campaign } from '../../domain/types'
 import { campaignRewardToken } from './campaignMarket'
 
-export function createCampaignMarketController(fetchMarket = fetchTokenMarket) {
+export function createCampaignMarketController(fetchMarket = fetchTokenMarket, now = Date.now) {
   let campaign: Campaign | null = null
   let key = ''
   let epoch = 0
@@ -24,6 +24,7 @@ export function createCampaignMarketController(fetchMarket = fetchTokenMarket) {
       if (key !== nextKey) cancel(false)
       key = nextKey
       campaign = next
+      return key
     },
     subscribe(listener: () => void) {
       listeners.add(listener)
@@ -31,17 +32,22 @@ export function createCampaignMarketController(fetchMarket = fetchTokenMarket) {
     },
     getSnapshot: () => markets,
     cancel,
-    async refresh() {
-      cancel()
+    async refresh(force = true) {
       const token = campaign ? campaignRewardToken(campaign) : null
-      if (!key || !campaign || !token) return
+      const chainId = campaign?.chainId
+      if (!force && key && token && chainId !== undefined) {
+        const evidence = markets.get(marketTokenKey(chainId, token))
+        if (active || (evidence && isMarketEvidenceFresh(evidence, now()))) return
+      }
+      cancel()
+      if (!key || chainId === undefined || !token) return
       const capturedEpoch = epoch
       const controller = new AbortController()
       active = controller
       try {
-        const evidence = await fetchMarket({ chainId: campaign.chainId, tokenAddress: token, signal: controller.signal })
+        const evidence = await fetchMarket({ chainId, tokenAddress: token, signal: controller.signal })
         if (epoch === capturedEpoch && !controller.signal.aborted) {
-          markets = new Map([[marketTokenKey(campaign.chainId, token), evidence]])
+          markets = new Map([[marketTokenKey(chainId, token), evidence]])
           for (const listener of listeners) listener()
         }
       } catch {
@@ -56,9 +62,9 @@ export function createCampaignMarketController(fetchMarket = fetchTokenMarket) {
 /** Quotes belong to the active wallet/source scope and are never persisted. */
 export function useCampaignMarket(campaign: Campaign | null, scope: string, enabled: boolean) {
   const controller = useMemo(() => createCampaignMarketController(), [])
-  controller.configure(campaign, scope, enabled)
+  const requestKey = controller.configure(campaign, scope, enabled)
   const markets = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
-  useEffect(() => { void controller.refresh() }, [controller, campaign, scope, enabled])
+  useEffect(() => { void controller.refresh(false) }, [controller, requestKey])
   useEffect(() => () => controller.cancel(), [controller])
   return { markets, refresh: useCallback(() => controller.refresh(), [controller]) }
 }

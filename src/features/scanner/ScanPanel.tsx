@@ -128,13 +128,6 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
           </li>
         )
       })}
-      <li className="source source--unsupported">
-        <span className="source__icon">
-          <Icon name="info" size={16} />
-        </span>
-        <span className="source__name">Sumber ber-API key / CORS tertutup</span>
-        <span className="source__state">Tidak didukung tanpa backend · gunakan checker resmi proyek</span>
-      </li>
     </ul>
   )
 
@@ -194,8 +187,7 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
           </div>
         ) : null}
 
-        {compact ? (
-          <details
+        <details
             key={`${state.runId}:${state.status}`}
             className="scan__details"
             open={isRunning || hasProblem}
@@ -205,10 +197,7 @@ export function ScanPanel({ scanner, now, compact, onScan }: ScanPanelProps) {
               Status per sumber
             </summary>
             {sourceList}
-          </details>
-        ) : (
-          sourceList
-        )}
+        </details>
       </div>
 
       <div className="scan__actions">

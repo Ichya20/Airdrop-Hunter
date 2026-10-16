@@ -45,6 +45,8 @@ export interface SourceAdapter {
   origin: DataOrigin
   version: string
   description: string
+  /** Batas waktu per percobaan untuk sumber ini, menggantikan timeout scanner. */
+  timeoutMs?: number
   /** Mengembalikan campaign yang sudah dinormalisasi, atau melempar `SourceError`. */
   fetchCampaigns(context: SourceFetchContext): Promise<Campaign[]>
   /** Jeda yang masih diwajibkan limiter sebelum mencoba sumber ini kembali. */

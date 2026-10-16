@@ -1,5 +1,5 @@
 import { fetchMerklWalletRewards, type WalletReward } from '../../adapters/rewards/merkl'
-import { fetchTokenMarket, marketTokenKey, type TokenMarketEvidence } from '../../adapters/market'
+import { fetchTokenMarket, isMarketChainSupported, marketTokenKey, type TokenMarketEvidence } from '../../adapters/market'
 import { isRewardTestnet } from '../../domain/freeAirdrop'
 import type { Identity } from '../../domain/types'
 import { identityAddress, identityKey } from '../wallet/identity'
@@ -75,6 +75,11 @@ export function createWalletRewardsController(
   // Two workers share one start gate, including across refreshes. The gate opens
   // as soon as a request starts; slow requests do not block the other worker.
   const checkMarket = async (reward: WalletReward, signal: AbortSignal) => {
+    // Unsupported networks produce local unknown evidence without using the API.
+    // They still count as checked, but must not hold up supported-network tokens.
+    if (!isMarketChainSupported(reward.chainId)) {
+      return fetchMarket({ chainId: reward.chainId, tokenAddress: reward.tokenAddress, signal })
+    }
     const previous = marketStarts
     let release!: () => void
     marketStarts = new Promise<void>((resolve) => { release = resolve })
@@ -93,7 +98,16 @@ export function createWalletRewardsController(
 
   const checkMarkets = async (targets: readonly WalletReward[], capturedEpoch: number, controller: AbortController) => {
     let next = 0
+    let completed = 0
+    const markets = new Map<string, TokenMarketEvidence>()
+    let timer: ReturnType<typeof setTimeout> | undefined
     const current = () => epoch === capturedEpoch && !controller.signal.aborted
+    const clearPending = () => { clearTimeout(timer); timer = undefined }
+    const flush = () => {
+      clearPending()
+      if (current()) publish({ ...snapshot, markets: new Map(markets), marketCompleted: completed })
+    }
+    controller.signal.addEventListener('abort', clearPending, { once: true })
     const worker = async () => {
       while (current() && next < targets.length) {
         const reward = targets[next++]
@@ -109,13 +123,21 @@ export function createWalletRewardsController(
           }
         }
         if (!current()) return
-        const markets = new Map(snapshot.markets)
         markets.set(marketTokenKey(reward.chainId, reward.tokenAddress), evidence)
-        publish({ ...snapshot, markets, marketCompleted: snapshot.marketCompleted + 1 })
+        completed += 1
+        // Keep React snapshots immutable, without cloning the growing map and
+        // rendering the whole dashboard for every individual token response.
+        timer ??= setTimeout(flush, 500)
       }
     }
-    await Promise.all(Array.from({ length: Math.min(2, targets.length) }, () => worker()))
-    if (current()) publish({ ...snapshot, marketStatus: 'done' })
+    try {
+      await Promise.all(Array.from({ length: Math.min(2, targets.length) }, () => worker()))
+      clearPending()
+      if (current()) publish({ ...snapshot, markets: new Map(markets), marketCompleted: completed, marketStatus: 'done' })
+    } finally {
+      clearPending()
+      controller.signal.removeEventListener('abort', clearPending)
+    }
   }
   return {
     configure(next: WalletRewardsContext, notify = true) {

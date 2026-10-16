@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-16",
+  "timezone": "Asia/Jakarta",
+  "before": {
+    "bytes": 1419031,
+    "gzip": 376999
+  },
+  "after": {
+    "bytes": 420515,
+    "gzip": 124758
+  },
+  "initialJs": [
+    "index-DcJA054K.js",
+    "utils-Bpv4vmSW.js",
+    "isAddress-DHgfdY-D.js"
+  ],
+  "unitScenariosPassed": 164,
+  "ui": {
+    "base": "http://127.0.0.1:4173/",
+    "checks": [
+      "Desktop: 247 campaign tersedia, hanya 30 baris dirender; kontrol demo tersembunyi.",
+      "Pagination: halaman terakhir dapat dibuka (7 hasil), tidak ada pemotongan total.",
+      "Pencarian, lazy detail, Escape, dan pemulihan fokus berfungsi.",
+      "Reward: 123 entri, DOM kosong saat tertutup, halaman 100 + 23 berfungsi.",
+      "Watchlist dan identitas bertahan sesudah refresh; cache sumber mencegah fetch katalog ulang.",
+      "HP 390 px: 30 kartu, akun dan navigasi berjalan, tidak ada overflow dokumen."
+    ],
+    "errors": [],
+    "requests": {
+      "https://api.llama.fi/protocols": 1,
+      "https://api.merkl.xyz/v4/opportunities?page=0&items=100": 1,
+      "https://api.merkl.xyz/v4/users/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/rewards/summary": 2,
+      "https://api.dexscreener.com/token-pairs/v1/ethereum/0x0000000000000000000000000000000000000001": 2,
+      "https://api.dexscreener.com/token-pairs/v1/ethereum/0x0000000000000000000000000000000000000002": 1
+    },
+    "initialJs": [
+      "http://127.0.0.1:4173/assets/index-DcJA054K.js",
+      "http://127.0.0.1:4173/assets/utils-Bpv4vmSW.js",
+      "http://127.0.0.1:4173/assets/isAddress-DHgfdY-D.js"
+    ]
+  },
+  "edge": {
+    "base": "http://127.0.0.1:4173/",
+    "checks": [
+      "Lazy panel lambat: aksi terakhir membuka satu dialog; simpan tanpa akun membuka pemilih akun.",
+      "Skenario DEMO eksplisit: hasil sebagian dan coba lagi pulih tanpa API eksternal.",
+      "Pembatalan scan lambat menghentikan proses dan menampilkan keadaan yang dapat dipulihkan."
+    ],
+    "errors": []
+  }
+}

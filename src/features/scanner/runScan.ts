@@ -73,21 +73,28 @@ async function attemptOnce(
   attempt: number,
   manualRetry: boolean,
 ): Promise<AttemptOutcome> {
+  if (signal.aborted) return { kind: 'cancelled' }
+  const timeoutMs = adapter.timeoutMs !== undefined && Number.isFinite(adapter.timeoutMs) && adapter.timeoutMs > 0
+    ? adapter.timeoutMs : options.timeoutMs
   const attemptController = new AbortController()
   const forwardAbort = () => attemptController.abort(signal.reason)
   signal.addEventListener('abort', forwardAbort, { once: true })
+  let rejectAbort!: (reason: unknown) => void
+  const interrupted = new Promise<never>((_resolve, reject) => { rejectAbort = reject })
+  const onAbort = () => rejectAbort(attemptController.signal.reason)
+  attemptController.signal.addEventListener('abort', onAbort, { once: true })
   const timer = setTimeout(() => {
     attemptController.abort(
-      new SourceError('timeout', `Tidak ada respons dalam ${Math.round(options.timeoutMs / 1000)} detik.`),
+      new SourceError('timeout', `Tidak ada respons dalam ${Math.round(timeoutMs / 1000)} detik.`),
     )
-  }, options.timeoutMs)
+  }, timeoutMs)
 
   try {
-    const campaigns = await adapter.fetchCampaigns({
+    const campaigns = await Promise.race([adapter.fetchCampaigns({
       signal: attemptController.signal,
       attempt,
       manualRetry,
-    })
+    }), interrupted])
     return signal.aborted ? { kind: 'cancelled' } : { kind: 'ok', campaigns }
   } catch (error) {
     if (signal.aborted) return { kind: 'cancelled' }
@@ -96,6 +103,7 @@ async function attemptOnce(
   } finally {
     clearTimeout(timer)
     signal.removeEventListener('abort', forwardAbort)
+    attemptController.signal.removeEventListener('abort', onAbort)
   }
 }
 

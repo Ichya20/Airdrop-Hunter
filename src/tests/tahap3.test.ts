@@ -5,6 +5,7 @@ import {
   createSourceRateLimiter,
   createUnsupportedSourceAdapter,
   LIVE_DEFILLAMA_SOURCE_ID,
+  MERKL_CATALOG_SOURCE_ID,
   mapDefiLlamaPayloadToCampaigns,
   parseRetryAfterMs,
   SourceError,
@@ -67,7 +68,7 @@ const SAMPLE_DEFILLAMA_PAYLOAD = [
     tvl: 18_500_000,
   },
   {
-    // Harus diabaikan karena kategori CEX
+    // Metadata kategori CEX tetap ditemukan tanpa mengaku sebagai airdrop.
     id: '9003',
     name: 'Some CEX',
     slug: 'some-cex',
@@ -92,12 +93,12 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
   await step('3.1: Pemetaan payload DefiLlama menghasilkan arsip lokal dan kandidat API dengan provenance terpisah', () => {
     const campaigns = mapDefiLlamaPayloadToCampaigns(SAMPLE_DEFILLAMA_PAYLOAD, {
       checkedAt: '2026-10-14T12:00:00.000Z',
-      maxOpportunities: 5,
-      minTvlUsd: 5_000_000,
     })
 
-    // 2 arsip lokal (Arbitrum & Uniswap) + 2 kandidat API (HyperBridge Lend & Aether Perps); CEX diabaikan
-    assert.equal(campaigns.length, 4)
+    // 2 arsip lokal + 10 entri API pada semua jaringan EVM di fixture.
+    assert.equal(campaigns.length, 12)
+    assert.equal(campaigns.filter((campaign) => campaign.sourceKind === 'local-archive').length, 2)
+    assert.equal(campaigns.filter((campaign) => campaign.sourceKind === 'api').length, 10)
     for (const c of campaigns) {
       assert.equal(c.origin, 'live')
       assert.deepEqual(c.foundIn, [LIVE_DEFILLAMA_SOURCE_ID])
@@ -225,7 +226,7 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
       attempt: 1,
       manualRetry: true,
     })
-    assert.equal(campaigns.length, 4)
+    assert.equal(campaigns.length, 12)
 
     // 2. HTTP 403 -> unsupported
     const forbiddenAdapter = createLiveDefiLlamaAdapter({
@@ -290,10 +291,11 @@ export async function runStage3Tests(): Promise<{ passed: number; details: strin
 
   await step('3.6: Registry sumber memilih kombinasi adapter dengan benar berdasarkan SourceMode (all, live, demo)', () => {
     const registry = createSourceAdapters(() => 'normal')
-    assert.equal(registry.selectByMode('live').length, 1)
-    assert.equal(registry.selectByMode('live')[0].origin, 'live')
+    assert.deepEqual(registry.selectByMode('live').map((adapter) => adapter.id),
+      [LIVE_DEFILLAMA_SOURCE_ID, MERKL_CATALOG_SOURCE_ID])
+    assert.ok(registry.selectByMode('live').every((adapter) => adapter.origin === 'live'))
     assert.equal(registry.selectByMode('demo').length, 3)
-    assert.equal(registry.selectByMode('all').length, 4)
+    assert.equal(registry.selectByMode('all').length, 5)
   })
 
   return { passed, details }

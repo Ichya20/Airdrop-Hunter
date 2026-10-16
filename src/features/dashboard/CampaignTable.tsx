@@ -23,7 +23,7 @@ export function CampaignTable({ rows, identityLabel, sortText, now, onOpen, onTo
     <div className="table-wrap">
       <table className="ctable">
         <caption className="sr-only">
-          Campaign DEMO untuk {identityLabel}: {rows.length} baris, diurutkan menurut {sortText}.
+          Campaign untuk {identityLabel}: {rows.length} baris pada halaman ini, diurutkan menurut {sortText}.
         </caption>
         <thead>
           <tr>

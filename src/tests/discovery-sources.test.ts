@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import * as viemChains from 'viem/chains'
+import { KNOWN_EVM_CHAINS } from '../adapters/sources/knownChains'
+import { isRewardTestnet } from '../domain/freeAirdrop'
 import { mergeCampaigns } from '../domain/normalize'
 import {
   createMerklCatalogAdapter,
@@ -75,6 +78,30 @@ export async function runDiscoverySourceTests(): Promise<{ passed: number; detai
     assert.equal(mapped[0].id, '1:defillama:first')
     assert.equal(mapped[1].id, '1:defillama:second')
     assert.equal(mapped[2].origin, 'testnet')
+  })
+
+  await step('Discovery: metadata ringkas mempertahankan seluruh alias dan testnet viem yang terpasang', () => {
+    const expected = Object.entries(viemChains).flatMap(([exportName, chain]) => (
+      typeof chain === 'object' && chain !== null && typeof chain.id === 'number' && typeof chain.name === 'string'
+        ? [{ exportName, id: chain.id, name: chain.name, testnet: 'testnet' in chain && chain.testnet === true }]
+        : []
+    ))
+    assert.deepEqual(KNOWN_EVM_CHAINS, expected, 'Jalankan node scripts/generate-chain-metadata.mjs setelah memperbarui viem')
+    const testnets = new Set(expected.filter((chain) => chain.testnet).map((chain) => chain.id))
+    for (const chain of expected) assert.equal(isRewardTestnet(chain.id), testnets.has(chain.id))
+  })
+
+  await step('Discovery: nama resmi, alias export, dan testnet luas tetap dikenali setelah optimasi metadata', () => {
+    const chains = ['Flare Mainnet', 'kaia', 'celo', 'Blast', 'inkSepolia', 'Monad Testnet']
+    const mapped = mapDefiLlamaPayloadToCampaigns([{ id: 'broad-networks', name: 'Broad networks', chains }],
+      { checkedAt: CHECKED_AT }).filter((item) => item.sourceKind === 'api')
+    assert.deepEqual(mapped.map((item) => item.chainId).sort((a, b) => a - b),
+      [14, 8217, 42220, 81457, 763373, 10143].sort((a, b) => a - b))
+    assert.deepEqual(mapped.filter((item) => item.origin === 'testnet').map((item) => item.chainId).sort((a, b) => a - b),
+      [10143, 763373])
+    const merklTestnets = mapMerklOpportunityPage([10143, 763373].map((chainId) => opportunity(`testnet-${chainId}`,
+      { chainId, chain: { id: chainId } })), CHECKED_AT)
+    assert.ok(merklTestnets.every((item) => item.origin === 'testnet'))
   })
 
   await step('Discovery: katalog Merkl menyimpan nama asli dan ID stabil, tanpa mengaku eligible atau gratis', () => {
