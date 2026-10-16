@@ -3,6 +3,7 @@ import {
   createLiveDefiLlamaAdapter,
   type LiveDefiLlamaAdapterOptions,
 } from './liveDefiLlamaAdapter'
+import { createMerklCatalogAdapter, type MerklCatalogAdapterOptions } from './merklCatalogAdapter'
 import type { SourceAdapter } from './types'
 
 export type SourceMode = 'all' | 'live' | 'demo'
@@ -17,12 +18,12 @@ export const SOURCE_MODE_OPTIONS: readonly SourceModeOption[] = [
   {
     value: 'all',
     label: 'Sumber Live + DEMO',
-    hint: 'Metadata LIVE DefiLlama, referensi ARSIP LOKAL, dan 3 sumber fixture DEMO dengan label masing-masing.',
+    hint: 'Katalog publik DefiLlama dan Merkl tanpa filter koin/TVL atau batas hasil lokal, ARSIP LOKAL, dan 3 fixture DEMO.',
   },
   {
     value: 'live',
     label: 'Hanya Sumber Live',
-    hint: 'Metadata protokol dari DefiLlama beserta referensi ARSIP LOKAL; belum memeriksa eligibility wallet.',
+    hint: 'Seluruh metadata EVM DefiLlama dan katalog Merkl beserta ARSIP LOKAL; token gratis, nilai pasar, dan hak klaim wallet diperiksa terpisah. Gas dapat diperlukan.',
   },
   {
     value: 'demo',
@@ -34,22 +35,29 @@ export const SOURCE_MODE_OPTIONS: readonly SourceModeOption[] = [
 export function createSourceAdapters(
   getScenario: () => DemoScenario,
   liveOptions?: LiveDefiLlamaAdapterOptions,
+  merklOptions?: MerklCatalogAdapterOptions,
 ): {
   liveAdapter: SourceAdapter
+  merklAdapter: SourceAdapter
+  liveAdapters: SourceAdapter[]
   demoAdapters: SourceAdapter[]
   allAdapters: SourceAdapter[]
   selectByMode: (mode: SourceMode) => SourceAdapter[]
 } {
   const liveAdapter = createLiveDefiLlamaAdapter(liveOptions)
+  const merklAdapter = createMerklCatalogAdapter(merklOptions)
+  const liveAdapters = [liveAdapter, merklAdapter]
   const demoAdapters = createDemoAdapters(getScenario)
-  const allAdapters = [liveAdapter, ...demoAdapters]
+  const allAdapters = [...liveAdapters, ...demoAdapters]
 
   return {
     liveAdapter,
+    merklAdapter,
+    liveAdapters,
     demoAdapters,
     allAdapters,
     selectByMode(mode: SourceMode): SourceAdapter[] {
-      if (mode === 'live') return [liveAdapter]
+      if (mode === 'live') return liveAdapters
       if (mode === 'demo') return demoAdapters
       return allAdapters
     },
@@ -57,5 +65,6 @@ export function createSourceAdapters(
 }
 
 export * from './liveDefiLlamaAdapter'
+export * from './merklCatalogAdapter'
 export * from './rateLimit'
 export * from './types'

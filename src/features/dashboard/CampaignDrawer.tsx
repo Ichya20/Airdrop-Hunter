@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Monogram, NetworkTag, OriginBadge, StatusBadge } from '../../components/Badges'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { MarketEvidence } from '../../components/MarketEvidence'
 import { describeDeadline, formatDateTime } from '../../domain/format'
 import {
   CAMPAIGN_STATUS_TEXT,
@@ -324,7 +325,9 @@ function DetailContent({
           <div className="detail__sections">
             <section className="detail__summary" aria-label="Ringkasan status">
               <StatusBadge label={label} size="lg" />
-              <p>{explainLabel(label, campaign, eligibility, name)}</p>
+              <p>{campaign.origin !== 'demo' && label === 'unverified' && eligibility.status === 'eligible'
+                ? 'Eligibility alamat telah diperiksa. Distribusi gratis dan nilai pasar token tetap harus terverifikasi sebelum dinyatakan siap.'
+                : explainLabel(label, campaign, eligibility, name)}</p>
               {campaign.summary ? <p className="muted">{campaign.summary}</p> : null}
               {isDemo ? (
                 <p className="notice notice--demo">
@@ -381,6 +384,18 @@ function DetailContent({
               stale={row.eligibilityStale}
               onRecheck={(proofJson) => onRecheckEligibility(campaign, proofJson)}
             />
+
+            {campaign.origin !== 'demo' ? (
+              <section aria-labelledby="detail-cost-title">
+                <h3 id="detail-cost-title" className="section-title">Distribusi gratis dan nilai pasar</h3>
+                <p>{row.claimCost.reason}</p>
+                {row.claimCost.sourceUrl ? (
+                  <a href={row.claimCost.sourceUrl} target="_blank" rel="noopener noreferrer">Bukti aturan biaya</a>
+                ) : null}
+                <p className="muted small">Gas jaringan boleh diperlukan. Hak klaim, nilai pasar, dan bukti token masuk wallet diperiksa terpisah.</p>
+                <div className="market-evidence"><MarketEvidence evidence={row.market} now={now} /></div>
+              </section>
+            ) : null}
 
             <section aria-labelledby="detail-source-title">
               <h3 id="detail-source-title" className="section-title">

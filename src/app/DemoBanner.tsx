@@ -82,8 +82,8 @@ export function DemoBanner({
           </span>
         ) : null}
         <span>
-          <strong>Tahap 3:</strong> kandidat protokol dari DefiLlama dengan cache 60 menit. Referensi Arbitrum dan
-          Uniswap berlabel <strong>ARSIP LOKAL</strong>. Kelayakan wallet belum diperiksa.
+          <strong>Pencarian luas:</strong> katalog DefiLlama dan Merkl tanpa pilihan koin atau batas total hasil.
+          {' '}Target: <strong>token gratis dan bernilai, bisa diklaim ke wallet</strong>. Gas boleh terpisah; metadata belum membuktikan hak klaim.
         </span>
       </p>
       {compact ? (

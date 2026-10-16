@@ -12,8 +12,11 @@ import { CampaignDrawer } from '../features/dashboard/CampaignDrawer'
 import { DashboardView } from '../features/dashboard/DashboardView'
 import type { DetailRequest, OpenIntent } from '../features/dashboard/intent'
 import { buildRows } from '../features/dashboard/rows'
+import { useCampaignMarket } from '../features/dashboard/useCampaignMarket'
 import { WatchlistView } from '../features/dashboard/WatchlistView'
 import { SCAN_TTL_MS, useScanner } from '../features/scanner/useScanner'
+import { useWalletRewards } from '../features/rewards/useWalletRewards'
+import { WalletRewardsPanel } from '../features/rewards/WalletRewardsPanel'
 import { AccountDialog } from '../features/wallet/AccountDialog'
 import { identityKey, walletAccountKey } from '../features/wallet/identity'
 import { useMetaMaskWallet } from '../features/wallet/useMetaMaskWallet'
@@ -64,6 +67,19 @@ export function App() {
   const [announcement, setAnnouncement] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
   const mainRef = useRef<HTMLElement>(null)
+  const walletRewards = useWalletRewards({
+    identity,
+    scanKey: `${sourceMode}:${scanner.state.finishedAt ?? 'initial'}:${dataEpoch}`,
+    enabled: hydrated && !storageBusy && sourceMode !== 'demo',
+  })
+  const cancelWalletRewards = walletRewards.cancel
+  const detailCampaign = detail ? scanner.campaigns.find((campaign) => campaign.id === detail.campaignId) ?? null : null
+  const detailMarket = useCampaignMarket(detailCampaign,
+    `${identityKey(identity)}:${sourceMode}:${scanner.state.finishedAt ?? 'initial'}:${dataEpoch}`,
+    hydrated && !storageBusy && sourceMode !== 'demo',
+  )
+  const markets = useMemo(() => new Map([...walletRewards.markets, ...detailMarket.markets]), [walletRewards.markets, detailMarket.markets])
+  useEffect(() => { refreshNow() }, [markets, refreshNow])
 
   const announce = useCallback((message: string) => {
     setAnnouncement('')
@@ -180,8 +196,8 @@ export function App() {
   const watchedIds = useMemo(() => watchlists[accountKey] ?? [], [watchlists, accountKey])
   const watched = useMemo(() => new Set(watchedIds), [watchedIds])
   const rows = useMemo(
-    () => buildRows(scanner.campaigns, identity, now, scanner.staleSourceIds, watched, cachedRecords),
-    [scanner.campaigns, identity, now, scanner.staleSourceIds, watched, cachedRecords],
+    () => buildRows(scanner.campaigns, identity, now, scanner.staleSourceIds, watched, cachedRecords, markets),
+    [scanner.campaigns, identity, now, scanner.staleSourceIds, watched, cachedRecords, markets],
   )
   const detailRow = detail ? (rows.find((row) => row.campaign.id === detail.campaignId) ?? null) : null
 
@@ -249,6 +265,7 @@ export function App() {
         return { ok: false, message: 'Batalkan atau tunggu scan selesai sebelum mengimpor cadangan.' }
       }
       setStorageBusy(true)
+      cancelWalletRewards()
       await invalidateEligibility()
       try {
         const result = await storage.importBackup(rawJson)
@@ -281,12 +298,13 @@ export function App() {
         setStorageBusy(false)
       }
     },
-    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce, invalidateEligibility],
+    [storage, sourceRegistry.store, scanner, refreshStorageStats, announce, invalidateEligibility, cancelWalletRewards],
   )
 
   const handleClearStorage = useCallback(async () => {
     if (scanner.isRunning) throw new Error('Batalkan atau tunggu scan selesai sebelum membersihkan cache.')
     setStorageBusy(true)
+    cancelWalletRewards()
     await invalidateEligibility()
     try {
       await storage.clearAll()
@@ -299,7 +317,7 @@ export function App() {
       setDataEpoch((value) => value + 1)
       setStorageBusy(false)
     }
-  }, [storage, scanner, refreshStorageStats, announce, invalidateEligibility])
+  }, [storage, scanner, refreshStorageStats, announce, invalidateEligibility, cancelWalletRewards])
 
   const counts = { dashboard: rows.length, watchlist: rows.filter((row) => row.watched).length }
 
@@ -336,6 +354,7 @@ export function App() {
             />
             {route === 'dashboard' ? (
               <DashboardView
+                walletRewardsPanel={sourceMode !== 'demo' ? <WalletRewardsPanel key={identityKey(identity)} identity={identity} rewards={walletRewards} now={now} /> : null}
                 rows={rows}
                 scanner={scanner}
                 identity={identity}
@@ -378,7 +397,9 @@ export function App() {
         onToggleWatch={toggleWatch}
         onSwitchNetwork={wallet.switchNetwork}
         eligibilityBusy={detail !== null && eligibilityPendingIds.has(detail.campaignId)}
-        onRecheckEligibility={recheckEligibility}
+        onRecheckEligibility={async (campaign, proofJson) => {
+          await Promise.all([recheckEligibility(campaign, proofJson), detailMarket.refresh()])
+        }}
       />
 
       <AccountDialog

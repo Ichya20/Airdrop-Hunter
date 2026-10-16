@@ -76,3 +76,13 @@ Pengaturan, watchlist, dan hasil scan SHALL disimpan di IndexedDB dengan kunci a
 2. Status tidak dibedakan hanya dengan warna (ikon + teks). Kontras teks ≥ 4,5:1 diukur pada pasangan warna aktual.
 3. Progres scan, hasil, dan error diumumkan melalui live region.
 4. Target sentuh sekitar 44 px di HP, zoom tidak dinonaktifkan, `prefers-reduced-motion` dihormati.
+
+## R11 Airdrop gratis dan bernilai — tambahan sebelum Tahap 5
+
+Arahan pengguna terbaru menggantikan kriteria Rp0 termasuk gas pada patch pencarian luas sebelumnya. Requirement R1–R10 tetap berlaku.
+
+1. Gratis berarti distribusi token tidak meminta pembelian token atau biaya klaim kepada penerima; gas jaringan boleh dibayar pengguna dan ditampilkan terpisah. Program dapat memiliki syarat aktivitas atau modal historis yang harus dijelaskan.
+2. Kandidat bernilai SHALL memiliki jumlah token nyata yang dilaporkan bisa diklaim untuk alamat aktif, serta bukti harga mata uang dan likuiditas positif yang masih segar pada alamat token dan jaringan yang sama. Tidak ada minimum harga/likuiditas atau daftar koin pilihan. Poin, pre-TGE, dan token uji tidak memenuhi kriteria ini.
+3. Penemuan SHALL menerima seluruh hasil dari sumber yang didukung tanpa batas total hasil lokal. Sumber baru memerlukan adapter yang memvalidasi datanya; cakupan API/jaringan dan kegagalan SHALL dijelaskan, bukan diklaim mencakup semua situs dunia.
+4. IF identitas token, eligibility, harga, likuiditas, atau sumber belum diketahui/gagal/usang THEN hasil tetap belum terverifikasi. Data API dan harga pasar bukan bukti receipt, token telah masuk wallet, dapat dijual, atau jaminan nilai pencairan.
+5. Hasil pasar SHALL dihapus dari tampilan saat identitas/jaringan/sumber berubah dan tidak dipulihkan sebagai bukti dari backup. Tahap 5 dan pengiriman transaksi tetap belum aktif pada patch ini.

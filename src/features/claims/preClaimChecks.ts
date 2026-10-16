@@ -1,11 +1,13 @@
 import { getClaimAdapter } from '../../adapters/claims'
 import { isEligibilityFresh } from '../../adapters/eligibility'
+import { assessClaimCost } from '../../domain/claimCost'
 import { shortenAddress } from '../../domain/address'
 import { formatDateTime } from '../../domain/format'
 import { getNetwork } from '../../domain/networks'
 import { ELIGIBILITY_TEXT, isEnded } from '../../domain/status'
 import type { Identity } from '../../domain/types'
 import type { CampaignRow } from '../dashboard/rows'
+import { hasCampaignMarket } from '../dashboard/campaignMarket'
 
 export type CheckState = 'ok' | 'warn' | 'fail'
 
@@ -21,6 +23,26 @@ export function buildChecks(row: CampaignRow, identity: Identity, now: number): 
   const eligibilityCurrent = campaign.origin === 'demo' || isEligibilityFresh(campaign, eligibility, now)
   const adapter = getClaimAdapter(campaign)
   const checks: PreClaimCheck[] = []
+  const claimCost = assessClaimCost(campaign)
+  checks.push({
+    label: 'Distribusi token gratis',
+    state: campaign.origin === 'demo' ? 'warn' : claimCost.status === 'free_distribution' ? 'ok' : 'fail',
+    text: claimCost.reason,
+  })
+  checks.push({
+    label: 'Nilai pasar token',
+    state: campaign.origin === 'demo' ? 'warn' : hasCampaignMarket(campaign, row.market, now) ? 'ok' : 'fail',
+    text: hasCampaignMarket(campaign, row.market, now)
+      ? 'Alamat token dan jaringan cocok dengan harga USD serta likuiditas positif yang masih segar. Ini belum menjamin hasil penjualan.'
+      : 'Harga dan likuiditas pasar token belum tersedia atau sudah usang; token belum memenuhi kriteria airdrop bernilai.',
+  })
+  checks.push({
+    label: 'Gas jaringan',
+    state: 'warn',
+    text: claimCost.gas === 'user_pays_gas'
+      ? 'Gas dibayar pengguna. Biaya gas boleh terpisah dari distribusi token gratis; estimasi transaksi belum aktif.'
+      : 'Kebutuhan dan nominal gas belum diketahui. Gas tidak menentukan apakah distribusi token gratis.',
+  })
 
   if (identity.kind === 'metamask') {
     checks.push({

@@ -28,7 +28,7 @@ Laptop memakai <b>MetaMask Chrome extension</b>, HP cukup <b>memantau alamat pub
 </div>
 
 > [!IMPORTANT]
-> **Patch Tahap 4 di atas v0.3.1:** Eligibility UNI dapat diperiksa memakai proof JSON publik yang diverifikasi terhadap kontrak resmi Ethereum. Hasil berlaku lima menit dan diperiksa ulang saat membuka detail atau preview klaim. Proof tidak tersedia, sumber gagal, atau campaign belum didukung → `unknown`. Metadata DefiLlama tetap hanya petunjuk penemuan; arsip lokal tetap tidak dapat diklaim. **Transaksi klaim Tahap 5 belum diaktifkan.** Lihat [mekanisme dan batas pemeriksaan](docs/eligibility.md).
+> **Patch free bernilai sebelum Tahap 5:** Token dibagikan gratis, tersedia untuk diklaim ke wallet, dan memiliki harga serta likuiditas pasar positif. **Gas jaringan boleh diperlukan.** Collector tidak memilih koin tertentu atau membatasi total hasil, dalam cakupan sumber dan jaringan yang didukung. Reward wallet diperiksa melalui API Merkl, lalu harga USD dan likuiditasnya diperiksa melalui DEX Screener. Kandidat dengan bukti pasar tetap bukan jaminan penjualan atau bukti token sudah masuk wallet. Transaksi klaim Tahap 5 belum diaktifkan. Lihat [kriteria free bernilai](docs/free-bernilai.md) dan [cakupan pencarian](docs/pencarian-luas.md).
 
 <p align="center">
   <img src="docs/screenshots/showcase.png" alt="Contoh antarmuka versi awal AirdropHunter di laptop dan HP" width="100%" />
@@ -84,6 +84,8 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 | `npm run typecheck` | Pemeriksaan TypeScript (`tsc -b`) |
 | `npm test` | Tes Tahap 2–4 dan regresi perapihan |
 | `npm run test:stage4` | Tes terarah patch eligibility dan regresi penyimpanan; tanpa build aplikasi |
+| `npm run test:discovery` | Tes terarah perluasan sumber, reward wallet, paginasi, dan pemeriksaan biaya |
+| `npm run test:value` | Tes terarah kriteria free bernilai, bukti pasar, dan regresi terkait; tanpa build aplikasi |
 | `npm run lint` | Oxlint |
 | `npm run build` | Typecheck + build produksi ke `dist/` |
 | `npm run preview` | Menyajikan hasil build |
@@ -95,6 +97,7 @@ Buka `http://localhost:5173`. Butuh Node.js `^20.19.0` atau `>=22.12.0`.
 - [x] **Tahap 3** · Metadata protokol live DefiLlama, kandidat belum terverifikasi, arsip referensi lokal, cache per sumber, dan retry dengan rate limit
 - [x] **Perapihan 0.3.1** · Hidrasi cache sebelum scan otomatis, invalidasi checkpoint versi adapter lama, validasi backup, dan pemisahan label LIVE/ARSIP LOKAL
 - [x] **Tahap 4** · Adapter proof UNI + pembacaan kontrak resmi, hasil usang, dan pemeriksaan ulang per alamat
+- [x] **Tambahan sebelum Tahap 5** · Pencarian tanpa pilihan koin/top-N, katalog Merkl dan reward per alamat, serta pemeriksaan token gratis dengan harga dan likuiditas positif; gas diperiksa terpisah
 - [ ] **Tahap 5** · Klaim testnet: simulasi, estimasi biaya, konfirmasi wallet, dan receipt
 
 Arsip lokal memakai `status: ended` agar aksi klaim tetap nonaktif di aplikasi. Untuk UNI, `deadline: null`: tanggal peluncuran historis tidak digunakan sebagai tenggat klaim. Status eligibility dan waktu pembacaan kontrak ditampilkan terpisah dari timestamp pemuatan arsip. Hasil `isClaimed` tidak membuat transaksi terkonfirmasi atau label Sudah diklaim tanpa bukti transaksi.

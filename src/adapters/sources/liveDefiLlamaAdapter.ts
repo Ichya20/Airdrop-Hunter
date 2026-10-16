@@ -1,5 +1,6 @@
 import { normalizeCampaign, type RawCampaign } from '../../domain/normalize'
 import type { Campaign } from '../../domain/types'
+import * as evmChains from 'viem/chains'
 import {
   createSourceRateLimiter,
   type SourceRateLimiter,
@@ -7,19 +8,29 @@ import {
 import { SourceError, type SourceAdapter } from './types'
 
 export const LIVE_DEFILLAMA_SOURCE_ID = 'defillama-live'
-export const LIVE_DEFILLAMA_ADAPTER_VERSION = 'defillama-live-1.1.0'
+export const LIVE_DEFILLAMA_ADAPTER_VERSION = 'defillama-live-2.1.0'
 export const DEFILLAMA_PROTOCOLS_ENDPOINT = 'https://api.llama.fi/protocols'
 
-/** Pemetaan nama jaringan pada respons DefiLlama ke chainId EVM yang didukung aplikasi. */
-const DEFILLAMA_CHAIN_TO_ID: Readonly<Record<string, number>> = {
-  Ethereum: 1,
-  Optimism: 10,
-  'OP Mainnet': 10,
-  Polygon: 137,
-  'Polygon PoS': 137,
-  Base: 8453,
-  Arbitrum: 42161,
-  'Arbitrum One': 42161,
+function chainKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+/** Nama dan export resmi viem, ditambah alias penamaan jaringan DefiLlama. */
+const DEFILLAMA_CHAIN_TO_ID = new Map<string, number>()
+const DEFILLAMA_TESTNET_CHAIN_IDS = new Set<number>()
+for (const [exportName, chain] of Object.entries(evmChains)) {
+  if (typeof chain !== 'object' || chain === null || !('id' in chain) || !('name' in chain)) continue
+  if (typeof chain.id !== 'number' || typeof chain.name !== 'string') continue
+  DEFILLAMA_CHAIN_TO_ID.set(chainKey(exportName), chain.id)
+  DEFILLAMA_CHAIN_TO_ID.set(chainKey(chain.name), chain.id)
+  if ('testnet' in chain && chain.testnet === true) DEFILLAMA_TESTNET_CHAIN_IDS.add(chain.id)
+}
+for (const [name, id] of Object.entries({
+  Ethereum: 1, Optimism: 10, 'OP Mainnet': 10, Polygon: 137, 'Polygon PoS': 137,
+  Base: 8453, Arbitrum: 42161, 'Arbitrum One': 42161, Avalanche: 43114,
+  BSC: 56, 'Binance Smart Chain': 56, xDai: 100, 'zkSync Era': 324,
+})) {
+  DEFILLAMA_CHAIN_TO_ID.set(chainKey(name), id)
 }
 
 export interface DefiLlamaProtocolItem {
@@ -110,25 +121,12 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function resolveSupportedChainId(item: DefiLlamaProtocolItem): number | null {
-  if (typeof item.chain === 'string' && item.chain in DEFILLAMA_CHAIN_TO_ID) {
-    return DEFILLAMA_CHAIN_TO_ID[item.chain]
-  }
-  if (Array.isArray(item.chains)) {
-    for (const chainName of item.chains) {
-      if (typeof chainName === 'string' && chainName in DEFILLAMA_CHAIN_TO_ID) {
-        return DEFILLAMA_CHAIN_TO_ID[chainName]
-      }
-    }
-  }
-  return null
-}
-
-function isTokenlessSymbol(symbol: unknown): boolean {
-  if (symbol === null || symbol === undefined) return true
-  if (typeof symbol !== 'string') return false
-  const trimmed = symbol.trim()
-  return trimmed === '' || trimmed === '-'
+function resolveSupportedChainIds(item: DefiLlamaProtocolItem): number[] {
+  const names = [...(item.chain ? [item.chain] : []), ...(item.chains ?? [])]
+  return [...new Set(names.flatMap((name) => {
+    const id = DEFILLAMA_CHAIN_TO_ID.get(chainKey(name))
+    return id === undefined ? [] : [id]
+  }))]
 }
 
 function sanitizeHttpsUrl(rawUrl: unknown): string | null {
@@ -145,8 +143,6 @@ function sanitizeHttpsUrl(rawUrl: unknown): string | null {
 
 export interface MapDefiLlamaOptions {
   checkedAt: string
-  maxOpportunities?: number
-  minTvlUsd?: number
 }
 
 /**
@@ -162,8 +158,6 @@ export function mapDefiLlamaPayloadToCampaigns(
     throw new SourceError('invalid', 'Respons sumber live bukan daftar protokol JSON yang valid.')
   }
 
-  const maxOpportunities = options.maxOpportunities ?? 8
-  const minTvlUsd = options.minTvlUsd ?? 5_000_000
   const results: Campaign[] = []
 
   // Indeks metadata protokol; kecocokan nama tidak memverifikasi campaign atau kontrak.
@@ -219,58 +213,48 @@ export function mapDefiLlamaPayloadToCampaigns(
     }
   }
 
-  // 2. Saring metadata tanpa simbol token dengan TVL tertinggi di chain EVM yang didukung.
-  // Sesuai aturan produk: agregator hanya petunjuk penemuan (`status: 'opportunity'`, `sourceVerified: false`).
-  const tokenlessCandidates = candidates
-    .filter((item) => {
-      if (!isTokenlessSymbol(item.symbol)) return false
-      if ((item.tvl ?? 0) < minTvlUsd) return false
-      if (item.category === 'CEX' || item.category === 'Chain' || item.category === 'Bridge') return false
-      return resolveSupportedChainId(item) !== null && sanitizeHttpsUrl(item.url) !== null
-    })
-    .sort((a, b) => (b.tvl ?? 0) - (a.tvl ?? 0))
-    .slice(0, maxOpportunities)
-
-  for (const item of tokenlessCandidates) {
-    const chainId = resolveSupportedChainId(item)
+  // 2. Semua metadata dengan jaringan EVM yang dikenali, tanpa filter token/TVL/kategori/top-N.
+  // Penemuan metadata tetap bukan bukti bahwa ada airdrop gratis atau wallet eligible.
+  for (const item of candidates) {
     const officialUrl = sanitizeHttpsUrl(item.url)
-    if (chainId === null || officialUrl === null) continue
+    for (const chainId of resolveSupportedChainIds(item)) {
+      const categoryLabel = item.category ? `Kategori ${item.category}` : 'Protokol DeFi'
+      const rawOpportunity: RawCampaign = {
+        name: `${item.name} — Kandidat Eksplorasi Protokol`,
+        project: item.name,
+        kind: 'token',
+        chainId,
+        status: 'opportunity',
+        officialUrl,
+        checkerUrl: null,
+        // Metadata agregator belum memverifikasi pengumuman atau kontrak klaim.
+        sourceVerified: false,
+        sourceEvidence: `Metadata protokol dari endpoint publik DefiLlama (${categoryLabel}). Ini petunjuk penemuan; distribusi token gratis, nilai pasar, dan hak klaim ke wallet belum diverifikasi.`,
+        deadline: null,
+        requirements: [
+          'Entri indeks protokol, bukan pengumuman airdrop. Simbol token, TVL, dan kategori tidak membuktikan distribusi gratis, nilai pasar, atau hak klaim ke wallet. Gas jaringan diperiksa terpisah.',
+          'Periksa dokumentasi dan pengumuman resmi proyek melalui situs resmi sebelum menghubungkan wallet.',
+        ],
+        allocation: null,
+        claimMethod: 'unknown',
+        contract: null,
+        summary:
+          item.description && item.description.trim() !== ''
+            ? item.description.trim()
+            : `${item.name} tercatat dalam metadata DefiLlama pada jaringan EVM ini; belum ada airdrop yang diverifikasi.`,
+      }
 
-    const categoryLabel = item.category ? `Kategori ${item.category}` : 'Protokol DeFi'
-    const rawOpportunity: RawCampaign = {
-      name: `${item.name} — Kandidat Eksplorasi Protokol`,
-      project: item.name,
-      kind: 'points',
-      chainId,
-      status: 'opportunity',
-      officialUrl,
-      checkerUrl: null,
-      // Agregator hanya petunjuk penemuan; belum ada pengumuman klaim resmi yang terverifikasi.
-      sourceVerified: false,
-      sourceEvidence: `Metadata tanpa simbol token dari endpoint publik DefiLlama (${categoryLabel}). Ini petunjuk penemuan; belum ada campaign airdrop yang diverifikasi.`,
-      deadline: null,
-      requirements: [
-        'Metadata protokol belum memuat simbol token di indeks publik DefiLlama; belum ada jaminan airdrop atau jadwal distribusi.',
-        'Periksa dokumentasi dan pengumuman resmi proyek melalui situs resmi sebelum menghubungkan wallet.',
-      ],
-      allocation: null,
-      claimMethod: 'unknown',
-      contract: null,
-      summary:
-        item.description && item.description.trim() !== ''
-          ? item.description.trim()
-          : `${item.name} adalah protokol di jaringan EVM yang metadata DefiLlama-nya belum memuat simbol token.`,
-    }
-
-    const normalized = normalizeCampaign(rawOpportunity, {
-      sourceId: LIVE_DEFILLAMA_SOURCE_ID,
-      origin: 'live',
-      checkedAt: options.checkedAt,
-      adapterVersion: LIVE_DEFILLAMA_ADAPTER_VERSION,
-    })
-    if (normalized) {
-      normalized.sourceKind = 'api'
-      results.push(normalized)
+      const normalized = normalizeCampaign(rawOpportunity, {
+        sourceId: LIVE_DEFILLAMA_SOURCE_ID,
+        origin: DEFILLAMA_TESTNET_CHAIN_IDS.has(chainId) ? 'testnet' : 'live',
+        checkedAt: options.checkedAt,
+        adapterVersion: LIVE_DEFILLAMA_ADAPTER_VERSION,
+      })
+      if (normalized) {
+        normalized.id = `${chainId}:defillama:${encodeURIComponent(item.id ?? item.slug ?? item.name)}`
+        normalized.sourceKind = 'api'
+        results.push(normalized)
+      }
     }
   }
 
@@ -281,8 +265,6 @@ export interface LiveDefiLlamaAdapterOptions {
   endpoint?: string
   fetchFn?: typeof fetch
   rateLimiter?: SourceRateLimiter
-  maxOpportunities?: number
-  minTvlUsd?: number
 }
 
 /**
@@ -378,8 +360,6 @@ export function createLiveDefiLlamaAdapter(
 
       return mapDefiLlamaPayloadToCampaigns(payload, {
         checkedAt: new Date().toISOString(),
-        maxOpportunities: options.maxOpportunities,
-        minTvlUsd: options.minTvlUsd,
       })
     },
   }

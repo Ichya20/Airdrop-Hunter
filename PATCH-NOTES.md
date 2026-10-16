@@ -1,55 +1,79 @@
-# Patch update Tahap 4 — AirdropHunter
+# Patch free bernilai — sebelum Tahap 5
 
-Paket ini hanya memuat file yang diubah/ditambahkan, bukan seluruh proyek atau hasil build.
-Baseline: Airdrop-Hunter-main (2).zip (v0.3.1).
+Definisi terbaru: token airdrop dibagikan gratis, tersedia untuk diklaim ke wallet, dan mempunyai nilai pasar nyata. Gas jaringan boleh diperlukan. Ini menggantikan aturan Rp0 termasuk gas pada patch sebelumnya.
 
-## Memasang ZIP patch
+Paket hanya memuat file sumber yang berubah/baru, bukan proyek lengkap atau build. Tidak mengaktifkan transaksi Tahap 5.
 
-1. Buat salinan folder proyek Anda.
-2. Ekstrak isi ZIP patch ke folder proyek yang berisi package.json, README.md, src, dan .kiro. Gabungkan folder dan timpa hanya file bernama sama.
-3. Jika Anda sudah mengubah file tersebut setelah ZIP baseline, bandingkan dahulu dengan daftar file di bawah agar perubahan lokal Anda tetap terjaga.
-4. Jalankan npm run test:stage4 jika ingin mengulang tes patch. Dependency tidak berubah; tidak diperlukan paket baru. Perintah ini membundel modul tes untuk Node, tanpa build aplikasi/dist.
+## Prasyarat dan pemasangan
 
-Alternatif Git: gunakan file AirdropHunter-update-tahap4.patch dari folder unduhan yang sama; dari akar proyek jalankan git apply --check <lokasi-patch>, lalu git apply <lokasi-patch>. Jangan menerapkan dua cara sekaligus.
+1. Gunakan proyek dari Airdrop-Hunter-main (2).zip yang SUDAH diberi AirdropHunter-update-tahap4.zip, kemudian AirdropHunter-patch-pencarian-luas.zip, sesuai urutan tersebut.
+2. Buat salinan folder proyek saat ini. Ekstrak ZIP update ini ke akar proyek yang berisi package.json dan src/.kiro; gabungkan folder dan timpa hanya berkas bernama sama. Jangan mengganti seluruh proyek dengan ZIP patch ini.
+3. Jika ada perubahan lokal sesudah patch sebelumnya, bandingkan diff sebelum menimpa. Paket tidak dapat mengetahui perubahan lokal di folder lain.
+4. Tidak ada dependency baru. Pengujian opsional: npm run test:value; script hanya membundel modul tes, bukan seluruh aplikasi.
 
-## Isi perubahan
+Alternatif Git: gunakan AirdropHunter-patch-free-bernilai.patch dengan baseline yang sama. Jalankan git -c core.autocrlf=false apply --check <lokasi-patch>, kemudian perintah yang sama tanpa --check. Pilih ZIP ATAU diff, jangan keduanya.
 
-- Pemeriksaan proof JSON publik UNI terhadap distributor resmi Ethereum; bukan API otomatis semua airdrop.
-- Hasil usang, pemeriksaan ulang pada detail/preview, isolasi wallet/jaringan, dan impor cadangan yang wajib diverifikasi ulang.
-- Arsip tetap tidak dapat diklaim; Tahap 5 belum diaktifkan. Ketentuan asli/steering tidak diubah; hanya checkbox tugas 4.1 dan 4.2 ditandai selesai.
-- 51 skenario logika + 10 pemeriksaan komponen lulus. Build aplikasi penuh tidak dijalankan. RPC mainnet, CORS hosting, dan proof wallet nyata belum diverifikasi langsung.
+## Perubahan yang diminta
 
-Panduan mekanisme: docs/eligibility.md. Rincian pengujian: docs/cek-tahap4.md.
+- Gas tidak lagi menggagalkan distribusi gratis. Aturan biaya distribusi, eligibility, bukti harga/likuiditas, dan transaksi diperiksa terpisah.
+- Seluruh token mainnet dengan reward belum diklaim positif dari API Merkl masuk antrean harga, tanpa daftar simbol atau batas total lokal. Dua permintaan pasar serentak, jarak mulai setidaknya 300 ms. Poin, pre-TGE, testnet, dan pending tidak menjadi kandidat token bernilai.
+- Harga USD/likuiditas positif harus cocok dengan alamat base token dan jaringan. Bukti lima menit; data gagal, tidak cocok, kosong atau usang tetap belum terverifikasi. Tidak ada minimum USD buatan.
+- Pencarian DefiLlama/Merkl tetap luas. Provider harga saat ini memetakan 12 jaringan EVM; token di jaringan lain tetap ditemukan dengan nilai belum diketahui. Sumber lain memerlukan adapter. Tidak ada klaim mencakup seluruh internet atau semua jaringan.
+- Panel menampilkan progres, harga, likuiditas, bukti pasar dan gas terpisah. Pergantian wallet/jaringan/sumber/scan menghapus hasil lama; bukti pasar tidak diimpor dari backup.
+- Requirement asli R1–R10 tetap utuh; hanya R11 ditambahkan untuk arahan terbaru. Steering, arsitektur wallet, claim adapter, lockfile, dan dependency tetap sama. Arsip UNI/ARB tidak dibuka untuk klaim.
+
+## Verifikasi dan batas
+
+79 skenario logika lulus. TypeScript terarah tanpa emit serta lint kode perubahan lulus. Komponen asli diuji dengan API/wallet tiruan pada desktop 1280 px dan HP 390 px: seluruh 245 campaign dan 123 reward dapat diakses, kandidat hanya muncul untuk pasar cocok, data usang tidak lolos, dan respons wallet lama diabaikan. Tidak ada galat JavaScript atau overflow dokumen.
+
+Schema API dan sumber aturan diperiksa dari dokumentasi resmi. Endpoint JSON dan CORS hosting nyata belum terverifikasi. Harga/likuiditas tidak menjamin token dapat dijual atau pencairan sejumlah tertentu. Laporan claimable adalah kandidat, belum bukti transaksi atau token sudah masuk wallet. Tidak ada tanda tangan/transaksi/receipt atau build aplikasi penuh.
+
+Rincian: docs/free-bernilai.md dan docs/cek-free-bernilai.md. Diff lulus git apply --check dan rekonstruksi sumber byte-per-byte terhadap baseline prasyarat.
 
 ## Daftar file sumber
 
-- `.kiro/specs/airdrop-hunter-mvp/tasks.md`
+- `.kiro/specs/airdrop-hunter-mvp/requirements.md`
 - `README.md`
-- `docs/cek-tahap4.md`
-- `docs/eligibility.md`
+- `docs/cek-free-bernilai.md`
+- `docs/cek-pencarian-luas.md`
+- `docs/free-bernilai.md`
+- `docs/pencarian-luas.md`
 - `package.json`
 - `scripts/test.mjs`
-- `src/adapters/eligibility/index.ts`
-- `src/adapters/eligibility/types.ts`
-- `src/adapters/eligibility/uni.ts`
+- `src/adapters/market/index.ts`
+- `src/adapters/sources/index.ts`
+- `src/adapters/sources/liveDefiLlamaAdapter.ts`
+- `src/adapters/sources/merklCatalogAdapter.ts`
 - `src/app/App.tsx`
-- `src/domain/status.ts`
+- `src/app/DemoBanner.tsx`
+- `src/components/MarketEvidence.tsx`
+- `src/domain/claimCost.ts`
+- `src/domain/freeAirdrop.ts`
+- `src/features/claims/ClaimPreview.tsx`
 - `src/features/claims/preClaimChecks.ts`
 - `src/features/dashboard/CampaignDrawer.tsx`
-- `src/features/dashboard/EligibilityCheck.tsx`
+- `src/features/dashboard/ClaimCostNotice.tsx`
+- `src/features/dashboard/DashboardView.tsx`
+- `src/features/dashboard/campaignMarket.ts`
 - `src/features/dashboard/rows.ts`
-- `src/features/eligibility/controller.ts`
-- `src/features/eligibility/useEligibility.ts`
-- `src/storage/backupValidation.ts`
+- `src/features/dashboard/useCampaignMarket.ts`
+- `src/features/rewards/WalletRewardsPanel.tsx`
+- `src/features/rewards/controller.ts`
 - `src/styles/components.css`
+- `src/tests/cleanup-source.test.ts`
+- `src/tests/discovery-cost.test.ts`
+- `src/tests/discovery-integration.test.ts`
+- `src/tests/discovery-rewards.test.ts`
+- `src/tests/discovery-sources.test.ts`
 - `src/tests/runAll.ts`
-- `src/tests/runStage4.ts`
-- `src/tests/tahap2.test.ts`
-- `src/tests/tahap4-adapter.test.ts`
-- `src/tests/tahap4-dashboard.test.ts`
-- `src/tests/tahap4-flow.test.ts`
-- `src/tests/tahap4-storage.test.ts`
+- `src/tests/runValue.ts`
+- `src/tests/value-market.test.ts`
+- `src/tests/value-policy.test.ts`
+- `src/tests/value-rewards.test.ts`
 
-SHA-256 ZIP baseline: `f1782d549c3de1f6313050d47d97fa8e24b475566c12e005c9f5be750286f4fb`
+Jumlah file sumber: 38. ZIP hanya berisi daftar ini dan PATCH-NOTES.md.
 
-Jumlah file sumber: 26. Patch diverifikasi dengan git apply --check dan rekonstruksi byte-per-byte dari baseline.
+SHA-256 patch prasyarat:
+
+- AirdropHunter-update-tahap4.zip: `ad0bee4ecfed5364700f677baf20a3824a56dcb300d78c783a3cb65b4b9873b3`
+- AirdropHunter-patch-pencarian-luas.zip: `784533279eaffec0c8493f33b213690c77683731af2cf87f0506311fe39bcf67`
