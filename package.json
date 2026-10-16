@@ -2,7 +2,7 @@
   "name": "airdrop-hunter",
   "private": true,
   "version": "0.3.1",
-  "description": "AirdropHunter: metadata DefiLlama, arsip lokal, MetaMask Chrome, dan pemeriksaan proof publik UNI terhadap kontrak resmi. Patch Tahap 4; transaksi klaim belum diaktifkan.",
+  "description": "AirdropHunter: pencarian luas, reward per wallet, dan pemeriksaan distribusi token gratis serta nilai pasar. Gas boleh terpisah; transaksi klaim belum diaktifkan.",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
@@ -12,6 +12,8 @@
     "typecheck": "tsc -b",
     "test": "node scripts/test.mjs",
     "test:stage4": "node scripts/test.mjs --stage4",
+    "test:discovery": "node scripts/test.mjs --discovery",
+    "test:value": "node scripts/test.mjs --value",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

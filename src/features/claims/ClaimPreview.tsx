@@ -38,11 +38,13 @@ export function ClaimPreview({ row, identity, now, headingRef, onSwitchNetwork }
       <h3 className="section-title section-title--lg" ref={headingRef} tabIndex={-1}>
         Preview klaim
       </h3>
-      <p className="notice notice--demo">
+      <p className={`notice notice--${campaign.origin === 'demo' ? 'demo' : 'info'}`}>
         <Icon name="flask" size={16} />
         <span>
-          Data campaign masih berasal dari fixture DEMO: tidak ada transaksi yang dikirim ke jaringan. Preview ini
-          memeriksa kesiapan akun, jaringan MetaMask, dan syarat pra-klaim.
+          {campaign.origin === 'demo'
+            ? 'Data fixture DEMO; bukan alokasi token nyata. '
+            : 'Preview berdasarkan data campaign yang tersedia. '}
+          Tidak ada transaksi dikirim. Preview memeriksa kesiapan akun, jaringan MetaMask, dan syarat pra-klaim.
         </span>
       </p>
 
@@ -105,7 +107,7 @@ export function ClaimPreview({ row, identity, now, headingRef, onSwitchNetwork }
               {campaign.contract ? (
                 <span className="mono">{campaign.contract.address}</span>
               ) : (
-                'Tidak ada. Fixture DEMO tidak memiliki alamat kontrak.'
+                campaign.origin === 'demo' ? 'Tidak ada. Fixture DEMO tidak memiliki alamat kontrak.' : 'Kontrak klaim belum terverifikasi.'
               )}
             </dd>
           </div>
@@ -127,7 +129,7 @@ export function ClaimPreview({ row, identity, now, headingRef, onSwitchNetwork }
           </div>
           <div>
             <dt>Token / jumlah</dt>
-            <dd>{campaign.allocation ?? 'Tidak dapat diverifikasi dari data DEMO.'}</dd>
+            <dd>{campaign.allocation ?? 'Jumlah token belum terverifikasi.'}</dd>
           </div>
           <div>
             <dt>Estimasi biaya</dt>

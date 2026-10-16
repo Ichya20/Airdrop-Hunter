@@ -5,12 +5,14 @@ import { build } from 'vite'
 // Bundle suite TypeScript untuk Node, tanpa server HTTP, API live, atau wallet nyata.
 const outDir = resolve('node_modules/.tmp/tests')
 const stage4Only = process.argv.includes('--stage4')
-const runner = stage4Only ? 'stage4-runner.mjs' : 'runner.mjs'
+const discoveryOnly = process.argv.includes('--discovery')
+const valueOnly = process.argv.includes('--value')
+const runner = valueOnly ? 'value-runner.mjs' : discoveryOnly ? 'discovery-runner.mjs' : stage4Only ? 'stage4-runner.mjs' : 'runner.mjs'
 await build({
   configFile: false,
   logLevel: 'warn',
   build: {
-    ssr: resolve(stage4Only ? 'src/tests/runStage4.ts' : 'src/tests/runAll.ts'),
+    ssr: resolve(valueOnly ? 'src/tests/runValue.ts' : discoveryOnly ? 'src/tests/runDiscovery.ts' : stage4Only ? 'src/tests/runStage4.ts' : 'src/tests/runAll.ts'),
     target: 'node20',
     outDir,
     emptyOutDir: false,

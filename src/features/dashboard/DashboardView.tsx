@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { getNetwork, isKnownChain } from '../../domain/networks'
@@ -7,6 +7,7 @@ import { ScanPanel } from '../scanner/ScanPanel'
 import type { Scanner } from '../scanner/useScanner'
 import { identityName } from '../wallet/identity'
 import { CampaignResults, SkeletonResults } from './CampaignResults'
+import { ClaimCostNotice } from './ClaimCostNotice'
 import { FilterBar } from './FilterBar'
 import {
   applyFilters,
@@ -21,6 +22,7 @@ import type { CampaignRow } from './rows'
 import type { OpenHandler } from './RowParts'
 
 interface DashboardViewProps {
+  walletRewardsPanel?: ReactNode
   rows: readonly CampaignRow[]
   scanner: Scanner
   identity: Identity
@@ -37,6 +39,7 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({
+  walletRewardsPanel,
   rows,
   scanner,
   identity,
@@ -193,6 +196,8 @@ export function DashboardView({
       />
 
       <ScanPanel scanner={scanner} now={now} compact={compactScan} onScan={onScan} />
+      <ClaimCostNotice rows={rows} />
+      {walletRewardsPanel}
 
       <section className="panel" aria-labelledby="campaigns-title">
         <div className="panel__head">
@@ -281,7 +286,7 @@ function IdentityNotice({
         <div>
           <p>
             <strong>MetaMask terhubung ({net.name} · chain ID {identity.chainId}).</strong> Data DEMO dipisahkan dari
-            wallet nyata. Pemeriksaan eligibility live otomatis akan diaktifkan di tahap 4.
+            wallet nyata. Distribusi gratis, eligibility, dan nilai pasar diperiksa terpisah; koneksi wallet belum menjamin reward dapat diklaim.
           </p>
         </div>
         <button type="button" className="btn btn--secondary btn--sm" onClick={onOpenAccount}>

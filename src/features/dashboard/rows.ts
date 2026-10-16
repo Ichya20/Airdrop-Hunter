@@ -1,5 +1,8 @@
 import { isEligibilityFresh, resolveEligibility } from '../../adapters/eligibility'
 import { getNetwork, type NetworkInfo } from '../../domain/networks'
+import { assessClaimCost, type ClaimCostAssessment } from '../../domain/claimCost'
+import type { TokenMarketEvidence } from '../../adapters/market'
+import { campaignMarket, hasCampaignMarket } from './campaignMarket'
 import {
   deriveLabel,
   ELIGIBILITY_TEXT,
@@ -23,6 +26,8 @@ export interface CampaignRow {
   campaign: Campaign
   network: NetworkInfo
   eligibility: EligibilityResult
+  claimCost: ClaimCostAssessment
+  market: TokenMarketEvidence | null
   tx: TxRecord | null
   label: DashboardLabel
   action: PrimaryAction
@@ -40,16 +45,24 @@ export function buildRows(
   staleSourceIds: ReadonlySet<string>,
   watched: ReadonlySet<string>,
   cachedRecords?: ReadonlyMap<string, StoredScanRecord>,
+  markets?: ReadonlyMap<string, TokenMarketEvidence>,
 ): CampaignRow[] {
   return campaigns.map((campaign) => {
     const cached = cachedRecords?.get(campaign.id) ?? null
     const eligibility = resolveEligibility(campaign, identity, cached, now)
     const tx = resolveTransaction(campaign, identity, cached)
-    const label = deriveLabel(campaign, eligibility, tx, now)
+    const claimCost = assessClaimCost(campaign)
+    const market = campaignMarket(campaign, markets)
+    const derivedLabel = deriveLabel(campaign, eligibility, tx, now)
+    // Gas is separate; live readiness still requires free distribution and fresh token market evidence.
+    const meetsFreeCriterion = claimCost.status === 'free_distribution' && hasCampaignMarket(campaign, market, now)
+    const label = campaign.origin !== 'demo' && derivedLabel === 'ready' && !meetsFreeCriterion ? 'unverified' : derivedLabel
     return {
       campaign,
       network: getNetwork(campaign.chainId),
       eligibility,
+      claimCost,
+      market,
       tx,
       label,
       action: resolveAction(label, campaign, tx),
@@ -66,6 +79,7 @@ export function buildRows(
 export function statusSubtext(row: CampaignRow): string {
   const parts = [`Eligibility: ${ELIGIBILITY_TEXT[row.eligibility.status].toLowerCase()}`]
   if (row.eligibilityStale) parts.push('Hasil eligibility usang')
+  if (row.campaign.origin === 'live') parts.push(row.claimCost.status === 'free_distribution' ? 'Token gratis · gas terpisah' : 'Biaya distribusi belum terverifikasi')
   if (row.tx !== null) parts.push(`Tx: ${TX_TEXT[row.tx.status].toLowerCase()}`)
   return parts.join(' · ')
 }

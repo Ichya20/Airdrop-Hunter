@@ -65,7 +65,7 @@ export async function runCleanupSourceTests(): Promise<{ passed: number; details
     assert.equal(candidate.claimMethod, 'unknown')
     assert.equal(candidate.contract, null)
     assert.equal(candidate.deadline, null)
-    assert.match(candidate.sourceEvidence, /petunjuk penemuan; belum ada campaign airdrop yang diverifikasi/)
+    assert.match(candidate.sourceEvidence, /petunjuk penemuan; distribusi token gratis, nilai pasar, dan hak klaim ke wallet belum diverifikasi/)
   })
 
   await step('Fetch metadata tidak memanggil kontrak atau mengubah provenance arsip', async () => {
